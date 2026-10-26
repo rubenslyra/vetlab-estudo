@@ -5,6 +5,7 @@ Material de treinamento para entrevista ao vivo: site estático com o caso de
 negócio e documentação técnica de 17 seções, com códigos-gabarito .NET 10 + React.
 
 [![Site](https://img.shields.io/website?url=https%3A%2F%2Frubenslyra.github.io%2Fvetlab-estudo%2F&label=site)](https://rubenslyra.github.io/vetlab-estudo/)
+[![Deploy](https://img.shields.io/github/actions/workflow/status/rubenslyra/vetlab-estudo/pages.yml?label=deploy)](https://github.com/rubenslyra/vetlab-estudo/actions/workflows/pages.yml)
 [![Último commit](https://img.shields.io/github/last-commit/rubenslyra/vetlab-estudo?label=last%20commit)](https://github.com/rubenslyra/vetlab-estudo/commits/main)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)](#stack)
 [![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](#stack)
@@ -73,6 +74,8 @@ Abra <http://localhost:3000/> e <http://localhost:3000/docs-request/>.
 > Prefira um servidor local a abrir o `index.html` via `file://`: a API de
 > clipboard e parte da navegação exigem contexto HTTP. Alternativa sem Node:
 > `python -m http.server 8000`.
+> A `404.html` usa caminhos absolutos do projeto (`/vetlab-estudo/...`) e é
+> melhor testada na URL publicada.
 
 ## Banco de dados local (opcional)
 
@@ -119,48 +122,53 @@ As connection strings de exemplo (uma por schema) estão em
 
 ```bash
 # HTML: estrutura, acessibilidade básica e âncoras
-npx --yes html-validate@9 index.html docs-request/index.html
+npx --yes html-validate@9 index.html docs-request/index.html 404.html
 
 # JavaScript
 node --check assets/js/main.js
 
 # JSON
 node -e "JSON.parse(require('fs').readFileSync('backend/appsettings.json','utf8'))"
+
+# XML do sitemap
+python -c "import xml.dom.minidom; xml.dom.minidom.parse('sitemap.xml')"
 ```
 
-Critério de sucesso: os três comandos terminam com código 0 e sem erros.
+Critério de sucesso: os quatro comandos terminam com código 0 e sem erros.
 As regras desativadas em [`.htmlvalidate.json`](.htmlvalidate.json) são
 intencionais (estilos inline do Bootstrap e textos gerados pelo tema).
 
 ## Publicação no GitHub Pages
 
-Configuração atual:
+O deploy é feito por **GitHub Actions** (`.github/workflows/pages.yml`). Cada
+push em `main` roda a validação e publica somente os arquivos estáticos.
 
 | Item | Valor |
 |---|---|
-| Origem | Deploy from a branch |
-| Branch / pasta | `main` / `/ (root)` |
-| Build | legacy (Jekyll desligado pelo `.nojekyll`) |
+| Origem | GitHub Actions — workflow `pages.yml` |
+| Gatilhos | push em `main` e execução manual |
+| Validação | HTML (`html-validate`), sintaxe JS, JSON e XML do sitemap |
+| Publicado | `index.html`, `docs-request/`, `assets/`, `404.html`, `robots.txt`, `sitemap.xml` |
 | URL | <https://rubenslyra.github.io/vetlab-estudo/> |
+
+Acompanhar o deploy:
+
+```bash
+gh run list --workflow pages.yml --limit 3
+gh run watch
+```
 
 Para reproduzir em outro repositório:
 
 1. Faça push do conteúdo na branch `main`.
-2. Abra **Settings → Pages → Source** e escolha `Deploy from a branch`.
-3. Selecione a branch `main` e a pasta `/ (root)`; salve.
-4. Aguarde ~1 minuto e acesse `https://SEU-USUARIO.github.io/SEU-REPO/`.
-5. A documentação técnica fica em `.../docs-request/`.
+2. Abra **Settings → Pages → Source** e escolha **GitHub Actions**.
+3. Rode o workflow: novo push ou **Actions → Deploy static site to Pages → Run workflow**.
+4. A URL aparece no environment `github-pages` e em **Settings → Pages**.
 
-Com o GitHub CLI autenticado, dá para acompanhar o build:
-
-```bash
-gh api repos/rubenslyra/vetlab-estudo/pages/builds/latest --jq '.status'
-# built
-```
-
-> [!TIP]
-> Se a página parecer desatualizada, confirme o commit do build e force o
-> recarregamento com `Ctrl+F5`.
+> [!NOTE]
+> O `.nojekyll` continua no repositório por compatibilidade com o build legacy.
+> No deploy via Actions ele não é necessário, e `backend/` e `frontend/` não são
+> publicados — o workflow monta um `_site/` apenas com o conteúdo do site.
 
 ## Estrutura do repositório
 
@@ -175,7 +183,14 @@ gh api repos/rubenslyra/vetlab-estudo/pages/builds/latest --jq '.status'
 | `backend/indices.sql` | Índices de consulta — rodar após as migrations |
 | `backend/appsettings.json` | Connection strings e JWT de exemplo (placeholders) |
 | `frontend/README.md` | Estrutura de referência do app React (código completo na doc) |
-| `.nojekyll` | Desabilita o Jekyll no GitHub Pages |
+| `404.html` | Página de erro personalizada (qualquer URL inexistente) |
+| `robots.txt` | Indexação e referência ao sitemap |
+| `sitemap.xml` | URLs publicadas para mecanismos de busca |
+| `assets/favicon.svg` | Favicon vetorial |
+| `assets/apple-touch-icon.png` | Ícone para iOS/iPadOS |
+| `assets/og-image.png` | Preview social 1200×630 (Open Graph/Twitter) |
+| `.github/workflows/pages.yml` | CI: valida e publica o site via GitHub Actions |
+| `.nojekyll` | Compatibilidade com o build legacy (não usado no deploy via Actions) |
 | `.htmlvalidate.json` | Configuração do validador HTML |
 
 ## Stack

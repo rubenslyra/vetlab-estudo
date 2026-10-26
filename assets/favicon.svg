@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VET-Lab">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c47046"/>
+      <stop offset="1" stop-color="#7ba8b8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#202024"/>
+  <path d="M14 15h9.5l8.5 21 8.5-21H50L36.5 51h-9z" fill="url(#g)"/>
+</svg>
