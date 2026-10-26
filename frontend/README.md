@@ -35,7 +35,7 @@ src/
 │   ├── auth/      components, hooks, context, schemas (Zod), api.ts
 │   └── solicitacoes/  components, hooks, schemas, api.ts
 ├── shared/        components/ui, lib/apiClient.ts, hooks, utils
-└── routes/        páginas .lazy.tsx
+└── routes/        páginas (uma por rota, importam de features)
 ```
 
 ## Variável de ambiente

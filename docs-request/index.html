@@ -118,10 +118,7 @@
 │   │   ├── Aggregates/
 │   │   │   └── SolicitacaoExame/
 │   │   │       ├── SolicitacaoExame.cs        (aggregate root)
-│   │   │       ├── Amostra.cs                 (entidade filha)
-│   │   │       ├── StatusSolicitacao.cs       (enum)
-│   │   │       ├── TipoAmostra.cs             (enum)
-│   │   │       └── TipoExame.cs               (enum)
+│   │   │       └── StatusSolicitacao.cs       (enums: status, tipo de amostra, tipo de exame)
 │   │   ├── ValueObjects/
 │   │   │   └── Crmv.cs                        (value object com validação)
 │   │   └── Exceptions/
@@ -214,6 +211,8 @@
       - "5432:5432"
     volumes:
       - vetlab_pgdata:/var/lib/postgresql/data
+      # cria os schemas auth/produto no primeiro start do banco
+      - ./schemas.sql:/docker-entrypoint-initdb.d/00-schemas.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vetlab"]
       interval: 5s
@@ -232,7 +231,7 @@ volumes:
     "ProdutoConnection": "Host=localhost;Port=5432;Database=vetlab_db;Username=vetlab;Password=vetlab123;SearchPath=produto"
   },
   "Jwt": {
-    "Key": "coloque-uma-chave-secreta-grande-aqui-minimo-32-chars",
+    "Key": "coloque-uma-chave-secreta-grande-aqui-minimo-32-caracteres",
     "Issuer": "VetLab",
     "Audience": "VetLabUsers",
     "ExpiresInMinutes": 120
@@ -267,13 +266,20 @@ dotnet add src/VetLab.Infrastructure package Npgsql.EntityFrameworkCore.PostgreS
 dotnet add src/VetLab.Infrastructure package Microsoft.AspNetCore.Identity.EntityFrameworkCore
 dotnet add src/VetLab.Api package Microsoft.EntityFrameworkCore.Design
 dotnet add src/VetLab.Api package Swashbuckle.AspNetCore
+dotnet add src/VetLab.Api package Microsoft.AspNetCore.Authentication.JwtBearer
+dotnet add src/VetLab.Api package System.IdentityModel.Tokens.Jwt
 dotnet add src/VetLab.Application package FluentValidation
+dotnet add src/VetLab.Application package FluentValidation.DependencyInjectionExtensions
 
 # Migrations (gerar e aplicar)
 dotnet ef migrations add Inicial_Produto --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context ProdutoDbContext --output-dir Migrations/Produto
 dotnet ef migrations add Inicial_Auth --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context AuthDbContext --output-dir Migrations/Auth
 dotnet ef database update --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context ProdutoDbContext
 dotnet ef database update --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context AuthDbContext
+
+# Índices — só depois que as tabelas existem
+docker compose cp indices.sql postgres:/tmp/indices.sql
+docker compose exec -T postgres psql -U vetlab -d vetlab_db -f /tmp/indices.sql
 
 dotnet run --project src/VetLab.Api</code></pre>
       </div>
@@ -288,20 +294,34 @@ dotnet run --project src/VetLab.Api</code></pre>
         sem o overhead de duas instâncias, e com a vantagem de poder migrar para
         bancos separados no futuro (passo natural do CQRS).
       </p>
+      <p>
+        O <code class="inline">schemas.sql</code> do repositório é montado como script de
+        inicialização do container: no <strong>primeiro</strong> <code class="inline">docker compose up</code>
+        (volume vazio) os dois schemas são criados automaticamente. Se o volume já existir,
+        rode o arquivo manualmente com <code class="inline">psql</code>.
+      </p>
 
       <div class="code-block">
-        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>SQL — criação dos schemas (executar uma vez)</span><button type="button" class="copy-btn">COPIAR</button></div>
-        <pre><code>-- Conectado em vetlab_db
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>schemas.sql — executa no primeiro start (init do Postgres)</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>-- Montado em /docker-entrypoint-initdb.d/00-schemas.sql pelo docker-compose
 CREATE SCHEMA IF NOT EXISTS auth;      -- tabelas do ASP.NET Identity
-CREATE SCHEMA IF NOT EXISTS produto;   -- tabelas do negócio (solicitações, amostras)
+CREATE SCHEMA IF NOT EXISTS produto;   -- tabelas do negócio (solicitações de exame)
 
 -- Opcional: garantir search path
-ALTER DATABASE vetlab_db SET search_path TO public;
+ALTER DATABASE vetlab_db SET search_path TO public;</code></pre>
+      </div>
 
--- Índice para performance na consulta por status (milhares de dados depois)
-CREATE INDEX IF NOT EXISTS idx_solicitacao_status ON produto.solicitacoes_exame (status);
-CREATE INDEX IF NOT EXISTS idx_solicitacao_veterinario ON produto.solicitacoes_exame (crmv);
-CREATE INDEX IF NOT EXISTS idx_solicitacao_data ON produto.solicitacoes_exame (data_criacao DESC);</code></pre>
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>indices.sql — rodar DEPOIS das migrations</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>-- As tabelas precisam existir: aplique as migrations antes.
+CREATE INDEX IF NOT EXISTS idx_solicitacao_status
+    ON produto.solicitacoes_exame (status);
+
+CREATE INDEX IF NOT EXISTS idx_solicitacao_veterinario
+    ON produto.solicitacoes_exame (crmv);
+
+CREATE INDEX IF NOT EXISTS idx_solicitacao_data
+    ON produto.solicitacoes_exame (data_criacao DESC);</code></pre>
       </div>
 
       <div class="code-block">
@@ -316,7 +336,6 @@ public class ProdutoDbContext : DbContext
     public ProdutoDbContext(DbContextOptions&lt;ProdutoDbContext&gt; options) : base(options) { }
 
     public DbSet&lt;SolicitacaoExame&gt; SolicitacoesExame =&gt; Set&lt;SolicitacaoExame&gt;();
-    public DbSet&lt;Amostra&gt; Amostras =&gt; Set&lt;Amostra&gt;();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -362,8 +381,11 @@ public class AuthDbContext : IdentityDbContext
       <h2>6. Domain Layer — Aggregates &amp; Regras</h2>
       <p>
         O coração do sistema. <code class="inline">SolicitacaoExame</code> é o <strong>aggregate root</strong> —
-        tudo passa por ele. A amostra é uma entidade filha. O status é protegido: só muda
-        através de métodos de domínio que validam a transição (não há <code class="inline">set</code> público).
+        tudo passa por ele. O tipo de amostra é um enum do agregado: aqui, cada solicitação
+        descreve uma única amostra (tipo + instruções de coleta); se o laboratório passar a
+        aceitar várias amostras por pedido, isso vira uma entidade filha.
+        O status é protegido: só muda através de métodos de domínio que validam a transição
+        (não há <code class="inline">set</code> público).
       </p>
 
       <div class="code-block">
@@ -405,17 +427,18 @@ namespace VetLab.Domain.Aggregates.SolicitacaoExame;
 public class SolicitacaoExame
 {
     public Guid Id { get; private set; }
-    public string NomeVeterinario { get; private set; }
-    public Crmv Crmv { get; private set; }              // value object
-    public string NomeAnimal { get; private set; }
-    public string Especie { get; private set; }
-    public string Sintomas { get; private set; }
-    public string SuspeitaClinica { get; private set; }
+    public string NomeVeterinario { get; private set; } = string.Empty;
+    public Crmv Crmv { get; private set; } = null!;      // value object
+    public string NomeAnimal { get; private set; } = string.Empty;
+    public string Especie { get; private set; } = string.Empty;
+    public string Sintomas { get; private set; } = string.Empty;
+    public string SuspeitaClinica { get; private set; } = string.Empty;
     public TipoAmostra TipoAmostra { get; private set; }
     public TipoExame TipoExame { get; private set; }
     public string? InstrucoesColeta { get; private set; }
     public StatusSolicitacao Status { get; private set; }
     public string? JustificativaRejeicao { get; private set; }
+    public string? Laudo { get; private set; }
     public DateTime DataCriacao { get; private set; }
     public DateTime? DataAtualizacao { get; private set; }
 
@@ -431,6 +454,10 @@ public class SolicitacaoExame
             throw new DomainException("Nome do veterinário é obrigatório.");
         if (string.IsNullOrWhiteSpace(nomeAnimal))
             throw new DomainException("Nome do animal é obrigatório.");
+        if (string.IsNullOrWhiteSpace(especie))
+            throw new DomainException("Espécie é obrigatória.");
+        if (string.IsNullOrWhiteSpace(suspeitaClinica))
+            throw new DomainException("Suspeita clínica é obrigatória.");
         if (string.IsNullOrWhiteSpace(sintomas))
             throw new DomainException("Sintomas devem ser descritos.");
 
@@ -471,6 +498,7 @@ public class SolicitacaoExame
             throw new DomainException($"Só é possível concluir uma análise EM_ANALISE. Atual: {Status}");
         if (string.IsNullOrWhiteSpace(laudo))
             throw new DomainException("Laudo final é obrigatório para concluir.");
+        Laudo = laudo.Trim();
         Status = StatusSolicitacao.CONCLUIDO;
         DataAtualizacao = DateTime.UtcNow;
     }
@@ -491,6 +519,8 @@ public class SolicitacaoExame
       <div class="code-block">
         <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Domain/ValueObjects/Crmv.cs + DomainException.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
         <pre><code>// Value Object — imutável, validado na construção, comparado por valor
+using VetLab.Domain.Exceptions;
+
 namespace VetLab.Domain.ValueObjects;
 
 public record Crmv
@@ -501,10 +531,13 @@ public record Crmv
     {
         if (string.IsNullOrWhiteSpace(valor))
             throw new DomainException("CRMV é obrigatório.");
+
+        // Normaliza ANTES de validar: "mg-12345" e "MG-12345" representam o mesmo CRMV
+        var normalizado = valor.Trim().ToUpperInvariant();
         // Formato esperado: UF-12345 (ex: MG-12345)
-        if (!System.Text.RegularExpressions.Regex.IsMatch(valor.Trim(), @"^[A-Z]{2}-\d{4,6}$"))
+        if (!System.Text.RegularExpressions.Regex.IsMatch(normalizado, @"^[A-Z]{2}-\d{4,6}$"))
             throw new DomainException($"CRMV '{valor}' inválido. Formato esperado: UF-12345.");
-        Valor = valor.Trim().ToUpper();
+        Valor = normalizado;
     }
 
     public override string ToString() =&gt; Valor;
@@ -562,11 +595,14 @@ public record SolicitacaoResponseDto(
     string Crmv,
     string NomeAnimal,
     string Especie,
+    string Sintomas,
+    string? InstrucoesColeta,
     string SuspeitaClinica,
     string TipoAmostra,
     string TipoExame,
     string Status,
     string? JustificativaRejeicao,
+    string? Laudo,
     DateTime DataCriacao,
     DateTime? DataAtualizacao
 );</code></pre>
@@ -638,11 +674,14 @@ public static class SolicitacaoMapper
             entidade.Crmv.Valor,
             entidade.NomeAnimal,
             entidade.Especie,
+            entidade.Sintomas,
+            entidade.InstrucoesColeta,
             entidade.SuspeitaClinica,
             entidade.TipoAmostra.ToString(),
             entidade.TipoExame.ToString(),
             entidade.Status.ToString(),
             entidade.JustificativaRejeicao,
+            entidade.Laudo,
             entidade.DataCriacao,
             entidade.DataAtualizacao
         );
@@ -842,6 +881,7 @@ public class SolicitacaoExameConfiguration : IEntityTypeConfiguration&lt;Solicit
         builder.Property(s =&gt; s.SuspeitaClinica).HasMaxLength(200).IsRequired();
         builder.Property(s =&gt; s.InstrucoesColeta).HasColumnType("text");
         builder.Property(s =&gt; s.JustificativaRejeicao).HasColumnType("text");
+        builder.Property(s =&gt; s.Laudo).HasColumnType("text");
 
         // Enums como string no banco — legível, evita quebra de contrato
         builder.Property(s =&gt; s.Status).HasConversion&lt;string&gt;().HasMaxLength(30).IsRequired();
@@ -889,8 +929,10 @@ public static class SolicitacaoEndpoints
     {
         // Agrupa todas as rotas deste domínio com prefixo e tag (Swagger)
         var grupo = app.MapGroup("/api/solicitacoes")
-                       .WithTags("Solicitações de Exame")
-                       .WithOpenApi();
+                       .WithTags("Solicitações de Exame");
+
+        // Para exigir token em todo o domínio, uma linha resolve:
+        // grupo.RequireAuthorization();
 
         // POST — endpoint de escrita (grava no banco)
         grupo.MapPost("/", async (
@@ -951,8 +993,11 @@ public static class SolicitacaoEndpoints
 
       <div class="code-block">
         <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Api/Program.cs — limpo, uma linha por domínio</span><button type="button" class="copy-btn">COPIAR</button></div>
-        <pre><code>using Microsoft.AspNetCore.Identity;
+        <pre><code>using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using VetLab.Api.Endpoints;
 using VetLab.Api.Middleware;
 using VetLab.Application.Interfaces;
@@ -980,8 +1025,29 @@ builder.Services.AddIdentityCore&lt;IdentityUser&gt;(opt =&gt;
         opt.Password.RequiredLength = 8;
         opt.User.RequireUniqueEmail = true;
     })
-    .AddEntityFrameworkStores&lt;AuthDbContext&gt;()
-    .AddApiEndpoints(); // .NET 8+: Identity API endpoints nativos
+    .AddEntityFrameworkStores&lt;AuthDbContext&gt;();
+
+// JWT: valida o token que o /api/auth/login emite (mesma Key/Issuer/Audience)
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Jwt:Key não configurada.");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =&gt;
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // DI — Repository e Service (escopo por requisição)
 builder.Services.AddScoped&lt;ISolicitacaoRepository, SolicitacaoRepository&gt;();
@@ -998,6 +1064,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Ordem importa: autenticar antes de autorizar; ambos antes dos endpoints
+app.UseAuthentication();
+app.UseAuthorization();
+
 // --- Endpoints via Extensions: UMA LINHA POR DOMÍNIO ---
 app.MapSolicitacaoEndpoints();   // domínio produto
 app.MapAuthEndpoints();          // domínio auth (ver seção Identity)
@@ -1013,6 +1083,15 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();</code></pre>
+      </div>
+
+      <div class="callout info">
+        <p><strong>OpenAPI no .NET 10:</strong> o ASP.NET Core já traz OpenAPI nativo
+        (<code class="inline">builder.Services.AddOpenApi()</code> +
+        <code class="inline">app.MapOpenApi()</code>, em <code class="inline">/openapi/v1.json</code>).
+        Swashbuckle continua sendo usado aqui pela UI do Swagger. Por isso o gabarito usa
+        <code class="inline">WithTags</code> (funciona nos dois) e não depende de
+        <code class="inline">WithOpenApi()</code>.</p>
       </div>
 
       <div class="speech-box">
@@ -1043,39 +1122,43 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace VetLab.Api.Endpoints;
 
-public record RegisterDto(string Email, string Password, string Nome);
+public record RegisterDto(string Email, string Password);
 public record LoginDto(string Email, string Password);
 
 public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        var grupo = app.MapGroup("/api/auth").WithTags("Autenticação").WithOpenApi();
+        var grupo = app.MapGroup("/api/auth").WithTags("Autenticação");
 
         grupo.MapPost("/register", async (
             [FromBody] RegisterDto dto,
-            UserManager&lt;IdentityUser&gt; userManager,
-            CancellationToken ct) =&gt;
+            UserManager&lt;IdentityUser&gt; userManager) =&gt;
         {
             var user = new IdentityUser { UserName = dto.Email, Email = dto.Email };
             var result = await userManager.CreateAsync(user, dto.Password);
             if (!result.Succeeded)
                 return Results.BadRequest(new { erros = result.Errors.Select(e =&gt; e.Description) });
-            return Results.Created($"/api/auth/{user.Id}", new { user.Id, user.Email });
+
+            // Ainda não existe GET de usuário — 201 sem header Location.
+            return Results.Created((string?)null, new { user.Id, user.Email });
         });
 
         grupo.MapPost("/login", async (
             [FromBody] LoginDto dto,
             UserManager&lt;IdentityUser&gt; userManager,
-            IConfiguration config,
-            CancellationToken ct) =&gt;
+            IConfiguration config) =&gt;
         {
             var user = await userManager.FindByEmailAsync(dto.Email);
             if (user is null || !await userManager.CheckPasswordAsync(user, dto.Password))
                 return Results.Unauthorized();
 
             var token = GerarJwt(user, config);
-            return Results.Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token), validade = token.ValidTo });
+            return Results.Ok(new
+            {
+                token = new JwtSecurityTokenHandler().WriteToken(token),
+                validade = token.ValidTo
+            });
         });
     }
 
@@ -1098,11 +1181,11 @@ public static class AuthEndpoints
       </div>
 
       <div class="callout info">
-        <p><strong>Para proteger endpoints:</strong> adicione
-        <code class="inline">builder.Services.AddAuthentication().AddJwtBearer(...)</code> e
-        chame <code class="inline">app.UseAuthentication().UseAuthorization();</code>
-        Depois, no grupo de endpoints: <code class="inline">grupo.RequireAuthorization();</code>
-        — uma linha protege todo o domínio.</p>
+        <p><strong>Para proteger endpoints:</strong> o <code class="inline">AddAuthentication().AddJwtBearer(...)</code>
+        e o <code class="inline">UseAuthentication().UseAuthorization()</code> já estão no
+        <code class="inline">Program.cs</code> acima. Falta só marcar o grupo:
+        <code class="inline">grupo.RequireAuthorization();</code> — uma linha protege todo o domínio.
+        O <code class="inline">/api/auth/login</code> continua anônimo (é ele que emite o token).</p>
       </div>
     </section>
 
@@ -1156,6 +1239,9 @@ public class ExceptionMiddleware
 
     private static async Task EscreverErroAsync(HttpContext ctx, HttpStatusCode status, string titulo, string detalhe)
     {
+        // Se a resposta já começou a ser enviada, não é possível trocar status/corpo.
+        if (ctx.Response.HasStarted) return;
+
         ctx.Response.ContentType = "application/problem+json";
         ctx.Response.StatusCode = (int)status;
         var problem = new
@@ -1176,6 +1262,7 @@ public class ExceptionMiddleware
         <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/Validators/CriarSolicitacaoValidator.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
         <pre><code>using FluentValidation;
 using VetLab.Application.DTOs;
+using VetLab.Domain.Aggregates.SolicitacaoExame;
 
 namespace VetLab.Application.Validators;
 
@@ -1187,10 +1274,14 @@ public class CriarSolicitacaoValidator : AbstractValidator&lt;CriarSolicitacaoDt
         RuleFor(x =&gt; x.Crmv).NotEmpty().Matches(@"^[A-Za-z]{2}-\d{4,6}$")
             .WithMessage("CRMV no formato UF-12345.");
         RuleFor(x =&gt; x.NomeAnimal).NotEmpty().MaximumLength(100);
+        RuleFor(x =&gt; x.Especie).NotEmpty().MaximumLength(50);
         RuleFor(x =&gt; x.Sintomas).NotEmpty().MinimumLength(10);
         RuleFor(x =&gt; x.SuspeitaClinica).NotEmpty().MaximumLength(200);
-        RuleFor(x =&gt; x.TipoAmostra).IsInEnum(typeof(Domain.Aggregates.SolicitacaoExame.TipoAmostra));
-        RuleFor(x =&gt; x.TipoExame).IsInEnum(typeof(Domain.Aggregates.SolicitacaoExame.TipoExame));
+
+        // TipoAmostra e TipoExame são strings no DTO — IsEnumName valida o NOME do enum.
+        // (IsInEnum() só existe para propriedades já tipadas como enum.)
+        RuleFor(x =&gt; x.TipoAmostra).IsEnumName(typeof(TipoAmostra), caseSensitive: false);
+        RuleFor(x =&gt; x.TipoExame).IsEnumName(typeof(TipoExame), caseSensitive: false);
     }
 }
 
@@ -1260,9 +1351,9 @@ os endpoints de solicitação. Não mexa em SolicitacaoEndpoints.cs.</p>
 │   │   ├── lib/                  # apiClient.ts (axios/fetch com interceptador de token)
 │   │   └── utils/
 │   ├── routes/                   # páginas (uma por rota, importam de features)
-│   │   ├── login.lazy.tsx
-│   │   ├── dashboard.lazy.tsx
-│   │   └── solicitacao.$id.lazy.tsx
+│   │   ├── login.tsx
+│   │   ├── dashboard.tsx
+│   │   └── solicitacao.$id.tsx
 │   └── main.tsx
 ├── package.json
 └── vite.config.ts</code></pre>
@@ -1310,10 +1401,19 @@ export async function apiClient&lt;T&gt;(
 
       <div class="code-block">
         <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>app/router.tsx — definição das rotas</span><button type="button" class="copy-btn">COPIAR</button></div>
-        <pre><code>import { createRouter, createRootRoute, createRoute, Outlet, Link } from "@tanstack/react-router";
-import { AuthProvider, useAuth } from "../features/auth/context/AuthContext";
+        <pre><code>import {
+  createRouter,
+  createRootRoute,
+  createRoute,
+  Outlet,
+  redirect,
+} from "@tanstack/react-router";
+import { AuthProvider } from "../features/auth/context/AuthContext";
+import LoginPage from "../routes/login";
+import DashboardPage from "../routes/dashboard";
+import SolicitacaoPage from "../routes/solicitacao.$id";
 
-// Layout raiz
+// Layout raiz — providers e shell da aplicação
 const rootRoute = createRootRoute({
   component: () =&gt; (
     &lt;AuthProvider&gt;
@@ -1328,38 +1428,51 @@ const rootRoute = createRootRoute({
 const loginRoute = createRoute({
   getParentRoute: () =&gt; rootRoute,
   path: "/login",
-  component: () =&gt; import("../routes/login.lazy").then((m) =&gt; m.default),
+  component: LoginPage,
 });
 
-// Rota protegida — wrapper que verifica autenticação
-function Protected({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) {
-    return &lt;Link to="/login"&gt;Redirecionando...&lt;/Link&gt;;
+/*
+ * Rota protegida: o guard roda ANTES de renderizar a página.
+ * Antes era um wrapper com useAuth — mas hook não roda em beforeLoad.
+ * Aqui a fonte de verdade é o token persistido (o mesmo que o apiClient lê).
+ * Com auth vindo do servidor, troque por um `context` do router.
+ */
+function exigirToken() {
+  if (!localStorage.getItem("vetlab_token")) {
+    throw redirect({ to: "/login" });
   }
-  return &lt;&gt;{children}&lt;/&gt;;
 }
 
 // Dashboard (protegida)
 const dashboardRoute = createRoute({
   getParentRoute: () =&gt; rootRoute,
   path: "/",
-  component: () =&gt; (
-    &lt;Protected&gt;
-      {import("../routes/dashboard.lazy").then((m) =&gt; m.default)}
-    &lt;/Protected&gt;
-  ),
+  component: DashboardPage,
+  beforeLoad: exigirToken,
 });
 
 // Detalhe da solicitação — param tipado: $id
 const solicitacaoRoute = createRoute({
   getParentRoute: () =&gt; rootRoute,
   path: "/solicitacao/$id",
-  component: () =&gt; import("../routes/solicitacao.$id.lazy").then((m) =&gt; m.default),
+  component: SolicitacaoPage,
+  beforeLoad: exigirToken,
 });
 
-const routeTree = rootRoute.addChildren([loginRoute, dashboardRoute, solicitacaoRoute]);
+const routeTree = rootRoute.addChildren([
+  loginRoute,
+  dashboardRoute,
+  solicitacaoRoute,
+]);
+
 export const router = createRouter({ routeTree });
+
+// Tipagem global: &lt;Link to="/solicitacao/$id" params={{ id }} /&gt; passa a ser checado
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 // No main.tsx: &lt;RouterProvider router={router} /&gt;</code></pre>
       </div>

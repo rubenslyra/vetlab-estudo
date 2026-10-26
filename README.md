@@ -14,26 +14,56 @@ vetlab-repo/
 │   ├── css/style.css       ← Estilo customizado (Bootstrap 5 + paleta tech dark)
 │   └── js/main.js          ← jQuery: copy-to-clipboard, scrollspy, smooth scroll
 ├── backend/
-│   ├── docker-compose.yml  ← PostgreSQL 17 (porta 5432)
+│   ├── docker-compose.yml  ← PostgreSQL 17 (porta 5432) + init dos schemas
 │   ├── appsettings.json    ← Duas connection strings (auth + produto)
-│   └── schemas.sql         ← Criação dos schemas auth e produto
+│   ├── schemas.sql         ← Criação dos schemas auth e produto (init do container)
+│   └── indices.sql         ← Índices — rodar depois das migrations
 ├── frontend/               ← (estrutura de referência — código completo na doc)
 └── .nojekyll               ← GitHub Pages: desabilita Jekyll
 ```
 
-## Como publicar no GitHub Pages
+## Site publicado
 
-1. Crie um repositório no GitHub (ex: `vetlab-estudo`) e faça push desta pasta.
-2. Vá em **Settings → Pages**.
-3. Em **Source**, selecione `Deploy from a branch`.
-4. Branch: `main` / pasta: `/ (root)`. Salve.
-5. Aguarde ~1 minuto. O site estará em:
-   `https://SEU-USUARIO.github.io/vetlab-estudo/`
-6. A documentação técnica estará em:
-   `https://SEU-USUARIO.github.io/vetlab-estudo/docs-request/`
+- Página principal: https://rubenslyra.github.io/vetlab-estudo/
+- Documentação técnica: https://rubenslyra.github.io/vetlab-estudo/docs-request/
 
-> O arquivo `.nojekyll` já está na raiz — garante que o GitHub Pages sirva os arquivos
+## Validar antes de publicar
+
+```bash
+# HTML (estrutura, links e âncoras)
+npx html-validate index.html docs-request/index.html
+
+# Sintaxe do JavaScript
+node --check assets/js/main.js
+
+# JSON
+node -e "JSON.parse(require('fs').readFileSync('backend/appsettings.json','utf8'))"
+```
+
+## Como o GitHub Pages está configurado
+
+Este repositório já está publicado com **Deploy from a branch**:
+
+- Branch: `main` · pasta: `/ (root)`
+- Build: *legacy* (Jekyll desabilitado pelo `.nojekyll`)
+
+Para reproduzir em outro repositório:
+
+1. Faça push da pasta.
+2. Vá em **Settings → Pages** → **Source**: `Deploy from a branch`.
+3. Branch `main` / pasta `/ (root)`. Salve.
+4. Aguarde ~1 minuto e acesse `https://SEU-USUARIO.github.io/SEU-REPO/`.
+5. A documentação técnica fica em `.../docs-request/`.
+
+> O arquivo `.nojekyll` na raiz garante que o GitHub Pages sirva os arquivos
 > estáticos sem processamento Jekyll (importante para a pasta `assets/`).
+
+## Segredos
+
+O `backend/appsettings.json` versionado traz **placeholder** de chave JWT e senha
+local do Postgres — serve só para o ambiente de treino com Docker. Em um projeto
+real: `dotnet user-secrets set "Jwt:Key" "<chave-de-32+-bytes>"` e nunca commitar
+a chave de produção.
 
 ## Stack do projeto
 
