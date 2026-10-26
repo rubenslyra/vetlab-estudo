@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VET-Lab — Caso de Estudo | Hipótese de Negócio</title>
+<meta name="description" content="Caso de estudo para treinamento: plataforma de gestão de exames veterinários com análise bioinformática. Preparação para entrevista ao vivo.">
+
+<!-- Fontes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Bootstrap 5 -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Ícones Lucide -->
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<!-- CSS customizado -->
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ==================== NAVBAR ==================== -->
+<nav class="navbar navbar-expand-lg navbar-vetlab fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="index.html">VET<span>-Lab</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-controls="navMain" aria-expanded="false" aria-label="Alternar navegação">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav ms-auto align-items-lg-center">
+        <li class="nav-item"><a class="nav-link" href="#hipotese">Hipótese</a></li>
+        <li class="nav-item"><a class="nav-link" href="#fluxo">Fluxo</a></li>
+        <li class="nav-item"><a class="nav-link" href="#clinico">Caso Clínico</a></li>
+        <li class="nav-item"><a class="nav-link" href="#justificativa">Justificativa</a></li>
+        <li class="nav-item ms-lg-3 mt-2 mt-lg-0">
+          <a href="docs-request/index.html" class="btn btn-accent btn-sm">Documentação Técnica
+            <i data-lucide="arrow-right" style="width:14px;height:14px;vertical-align:-2px;"></i>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ==================== HERO ==================== -->
+<header class="hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <span class="eyebrow">Modo Estudo / Treinamento — Preparação para Entrevista</span>
+        <h1>Plataforma <span class="gradient-text">VET-Lab</span><br>Gestão de Exames Veterinários &amp; Bioinformática</h1>
+        <p class="lead mt-3 mb-4">
+          Um caso de uso realista, construído do zero, para treinar a construção de uma API
+          .NET com PostgreSQL em Docker, frontend React com TanStack Router, e uma arquitetura
+          preparada para evoluir — de OOP/SOLID até CQRS e Event Sourcing.
+        </p>
+        <div class="d-flex flex-wrap gap-3">
+          <a href="docs-request/index.html" class="btn btn-accent">
+            <i data-lucide="file-code-2" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px;"></i>
+            Acessar Documentação Técnica
+          </a>
+          <a href="#hipotese" class="btn btn-outline-accent">
+            <i data-lucide="book-open" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px;"></i>
+            Entender o Caso
+          </a>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <span class="badge badge-accent">.NET 10</span>
+          <span class="badge badge-accent">PostgreSQL + Schemas</span>
+          <span class="badge badge-accent">ASP.NET Identity</span>
+          <span class="badge badge-accent">React + TanStack Router</span>
+          <span class="badge badge-accent">Zod</span>
+          <span class="badge badge-accent">EF Core Code-First</span>
+        </div>
+      </div>
+      <div class="col-lg-4 d-none d-lg-block">
+        <div class="card-x text-center">
+          <i data-lucide="flask-conical" style="width:48px;height:48px;color:var(--accent);"></i>
+          <h5 class="mt-3">Do pedido ao laudo</h5>
+          <p>3 etapas · 5 estados de ciclo de vida · 2 conexões de banco · 100% code-first</p>
+          <hr style="border-color:var(--border);">
+          <p style="font-size:0.8rem;color:var(--muted);margin:0;">
+            "Sistema preparado para evoluir. Começa simples, mas cada decisão
+            arquitetural já pensa no próximo passo."
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container pb-5">
+
+  <!-- ==================== HIPÓTESE ==================== -->
+  <section id="hipotese" class="mt-5">
+    <span class="eyebrow">Capítulo 01</span>
+    <h2>A Hipótese que Gerou o Projeto</h2>
+    <p class="lead">Tudo começou com uma pergunta simples: <em>quem pede uma análise bioinformática, e de onde ela parte?</em></p>
+
+    <div class="row g-4 mt-2">
+      <div class="col-lg-6">
+        <div class="card-x">
+          <div class="card-icon"><i data-lucide="messages-square" style="width:22px;height:22px;"></i></div>
+          <h5>A origem (transcrição do diálogo)</h5>
+          <p>
+            Em uma conversa de estudo, o ponto de partida foi o fluxo real de um laboratório:
+            um veterinário atende um animal com sintomas, coleta uma amostra, envia ao laboratório.
+            Lá, técnicos fazem o preparo e refino inicial. Só então os dados brutos chegam à
+            <strong>bioinformática</strong> — a etapa computacional onde a API deste projeto entra.
+          </p>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-x accent2">
+          <div class="card-icon"><i data-lucide="target" style="width:22px;height:22px;"></i></div>
+          <h5>O objetivo do treinamento</h5>
+          <p>
+            Relembrar, na prática e ao vivo (em gravação), como se conecta um frontend a uma API,
+            como se constrói um endpoint de escrita que persiste em PostgreSQL, e como organizar o
+            código de forma sustentável — sem depender de geração automática por IA, mas usando-a
+            como copiloto em branches paralelas.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info mt-4">
+      <p><strong>Por que este caso de negócio?</strong> Ele é rico o suficiente para exigir
+      relacionamentos, estados, validações e múltiplas tabelas — mas pequeno o bastante para
+      ser construído em uma sessão de estudo. E ele cresce: no segundo vídeo da série,
+      milhares de registros entram em cena, e as decisões de hoje (schemas, índices,
+      separação de contextos) se pagam.</p>
+    </div>
+  </section>
+
+  <!-- ==================== FLUXO ==================== -->
+  <section id="fluxo" class="mt-5">
+    <span class="eyebrow">Capítulo 02</span>
+    <h2>O Fluxo de Negócio — Três Etapas</h2>
+    <p class="lead">Cada etapa tem um ator, uma responsabilidade e um ponto de entrada na API.</p>
+
+    <div class="mt-4">
+      <div class="flow-step">
+        <h5><i data-lucide="stethoscope" style="width:18px;height:18px;color:var(--accent);vertical-align:-3px;margin-right:6px;"></i>Etapa 1 — Solicitação Clínica (Veterinário)</h5>
+        <p>
+          Após avaliação <em>in loco</em>, o veterinário observa o comportamento do animal,
+          descarta hipóteses e decide por um exame. Ele preenche um formulário digital: dados do
+          animal, sintomas, suspeita clínica, <strong>tipo de amostra</strong> (sangue, fezes,
+          tecido, líquido peritoneal) e instruções de coleta. Este pedido é o <strong>POST de escrita</strong>
+          da nossa API.
+        </p>
+      </div>
+      <div class="flow-step step2">
+        <h5><i data-lucide="microscope" style="width:18px;height:18px;color:var(--accent2);vertical-align:-3px;margin-right:6px;"></i>Etapa 2 — Processamento Laboratorial (Técnicos)</h5>
+        <p>
+          A amostra física chega ao laboratório. A equipe confere integridade (pode vir quebrada,
+          contaminada ou com formulário inconsistente — daí o status <strong>REJEITADO</strong>),
+          prepara lâminas, realiza análises químicas/morfológicas e gera os dados brutos.
+          O pedido transita por <strong>EM_PROCESSAMENTO</strong>.
+        </p>
+      </div>
+      <div class="flow-step step3">
+        <h5><i data-lucide="dna" style="width:18px;height:18px;color:var(--success);vertical-align:-3px;margin-right:6px;"></i>Etapa 3 — Análise Bioinformática (onde entramos)</h5>
+        <p>
+          Os dados refinados seguem para o núcleo de computação forense interna. Aqui a API
+          recebe o material para sequenciamento (NGS), PCR ou cultura bacteriana. O pedido fica
+          <strong>EM_ANALISE</strong> até a emissão do laudo conclusivo → <strong>CONCLUIDO</strong>.
+          Um endpoint de leitura (GET) expõe o status a qualquer momento.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== CASO CLÍNICO ==================== -->
+  <section id="clinico" class="mt-5">
+    <span class="eyebrow">Capítulo 03</span>
+    <h2>O Caso Clínico Exemplo</h2>
+    <p class="lead">Para dar concretude, usamos um caso realista: cólica equina com suspeita de clostridiose.</p>
+
+    <div class="row g-4 mt-2">
+      <div class="col-md-6">
+        <div class="card-x">
+          <h5 style="color:var(--accent);">Animal &amp; Sintomas</h5>
+          <table class="table-x">
+            <thead><tr><th style="width:40%;">Campo</th><th>Valor</th></tr></thead>
+            <tbody>
+            <tr><td>Espécie</td><td>Equino (cavalo)</td></tr>
+            <tr><td>Sintoma principal</td><td>Dor abdominal intensa — <strong>cólica equina</strong> / abdômen agudo</td></tr>
+            <tr><td>Sintomas associados</td><td>Inapetência, evacuações reduzidas com muco, desconforto</td></tr>
+            <tr><td>Suspeita clínica</td><td>Clostridiose intestinal</td></tr>
+            <tr><td>Agentes prováveis</td><td><em>Clostridium perfringens</em> · <em>Clostridium difficile</em></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card-x accent2">
+          <h5 style="color:var(--accent2);">Exame Solicitado</h5>
+          <table class="table-x">
+            <thead><tr><th style="width:40%;">Campo</th><th>Valor</th></tr></thead>
+            <tbody>
+            <tr><td>Tipo de amostra</td><td>Fezes (fresca, acondicionada em gelo)</td></tr>
+            <tr><td>Exame</td><td>Sequenciamento NGS — perfil de microbiota intestinal</td></tr>
+            <tr><td>Alternativas</td><td>Cultura bacteriana · Painel PCR gastrointestinal</td></tr>
+            <tr><td>Prazo</td><td>Envio em até 2h após coleta</td></tr>
+            <tr><td>Resultado esperado</td><td>Laudo com perfil microbiológico e patógeno identificado</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="mt-5">Os Cinco Estados do Ciclo de Vida</h3>
+    <p class="text-muted-x">Todo status tem um antônimo — prepara o terreno para filas e tratamento de exceção.</p>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <span class="pill created">CRIADO</span>
+      <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--muted);align-self:center;"></i>
+      <span class="pill processing">EM_PROCESSAMENTO</span>
+      <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--muted);align-self:center;"></i>
+      <span class="pill analysis">EM_ANALISE</span>
+      <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--muted);align-self:center;"></i>
+      <span class="pill done">CONCLUIDO</span>
+      <span class="mx-2" style="color:var(--muted);align-self:center;">|</span>
+      <span class="pill rejected">REJEITADO</span>
+      <span class="text-muted-x" style="font-size:0.82rem;align-self:center;">(a qualquer momento, com justificativa)</span>
+    </div>
+  </section>
+
+  <!-- ==================== JUSTIFICATIVA ==================== -->
+  <section id="justificativa" class="mt-5">
+    <span class="eyebrow">Capítulo 04</span>
+    <h2>Justificativa Arquitetural — Por Que Cada Decisão?</h2>
+    <p class="lead">Nada aqui é por acaso. Cada escolha tem um "porquê" que você vai explicar na entrevista.</p>
+
+    <div class="row g-4 mt-2">
+      <div class="col-md-6 col-lg-4">
+        <div class="card-x">
+          <div class="card-icon"><i data-lucide="database" style="width:22px;height:22px;"></i></div>
+          <h5>Schemas no PostgreSQL</h5>
+          <p>Um banco, dois schemas lógicos: <code class="inline">auth</code> (Identity) e <code class="inline">produto</code> (negócio). Vantagem do Postgres que você cita na entrevista — isolamento sem overhead de duas instâncias.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card-x">
+          <div class="card-icon"><i data-lucide="layers" style="width:22px;height:22px;"></i></div>
+          <h5>Camadas bem definidas</h5>
+          <p>Domain (aggregates) → Application (serviços = "casos de uso") → Infrastructure (repositories, EF) → API (endpoints via Extensions). Dependência aponta sempre para dentro.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card-x accent2">
+          <div class="card-icon"><i data-lucide="git-branch" style="width:22px;height:22px;"></i></div>
+          <h5>IA como copiloto, não como autor</h5>
+          <p>Você codifica na sua branch; o OpenCode trabalha em branch paralela com validação/erros. Merge quando fizer sentido. Na entrevista, você mostra que <em>entende</em> o código.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card-x">
+          <div class="card-icon"><i data-lucide="map" style="width:22px;height:22px;"></i></div>
+          <h5>Sem AutoMapper</h5>
+          <p>Mapeamento DTO ↔ Entidade manual e explícito. Mais código, mas zero mágica — e na entrevista você consegue explicar cada linha. Depois você decide se abstrai.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card-x">
+          <div class="card-icon"><i data-lucide="route" style="width:22px;height:22px;"></i></div>
+          <h5>Endpoints via Extensions</h5>
+          <p><code class="inline">IEndpointRouteBuilder</code> + <code class="inline">MapGroup</code> mantém o <code class="inline">Program.cs</code> limpo e agrupa rotas por domínio. Ponto de discussão: Minimal APIs vs Controllers.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card-x accent2">
+          <div class="card-icon"><i data-lucide="trending-up" style="width:22px;height:22px;"></i></div>
+          <h5>Preparado para escalar</h5>
+          <p>Hoje: escrita e leitura no mesmo fluxo. Amanhã: CQRS com modelos separados, Event Sourcing para histórico, filas (RabbitMQ/Kafka) para processamento assíncrono dos milhares de dados.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout warn mt-4">
+      <p><strong>Regra de ouro do treinamento:</strong> explique cada decisão como se estivesse
+      respondendo a um entrevistador. Não diga "usei porque todo mundo usa" — diga
+      "usei porque neste contexto, o trade-off X vale a pena, e a alternativa Y seria
+      melhor se Z". É isso que diferencia um desenvolvedor que copia código de um
+      que projeta sistemas.</p>
+    </div>
+  </section>
+
+  <!-- ==================== CTA FINAL ==================== -->
+  <section class="mt-5 text-center py-5">
+    <h2>Pronto para construir?</h2>
+    <p class="lead mb-4">A documentação técnica completa — com requisitos, arquitetura, e todos os códigos como gabarito copiável — está na página de docs.</p>
+    <a href="docs-request/index.html" class="btn btn-accent btn-lg">
+      Abrir <code class="inline" style="color:inherit;background:transparent;border:none;">api/docs-request/</code>
+      <i data-lucide="arrow-right" style="width:18px;height:18px;vertical-align:-3px;margin-left:6px;"></i>
+    </a>
+    <p class="text-muted-x mt-3" style="font-size:0.85rem;">Acesse também pelo endpoint: <code class="inline">/docs-request/</code> — rota dedicada, fora da navegação principal.</p>
+  </section>
+
+</main>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="footer-x">
+  <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <p><strong style="color:var(--text);">VET-Lab</strong> — Caso de estudo para treinamento &amp; entrevista. <span class="year-now"></span></p>
+    <p>Stack: .NET 10 · PostgreSQL · React · TanStack Router · Zod</p>
+  </div>
+</footer>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/main.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

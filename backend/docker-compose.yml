@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: vetlab-postgres
+    environment:
+      POSTGRES_USER: vetlab
+      POSTGRES_PASSWORD: vetlab123
+      POSTGRES_DB: vetlab_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - vetlab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetlab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vetlab_pgdata:

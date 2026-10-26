@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VET-Lab — Documentação Técnica | api/docs-request</title>
+<meta name="description" content="Documentação técnica completa: arquitetura, requisitos, schemas PostgreSQL, .NET 10, Identity, endpoints via Extensions, React + TanStack Router + Zod. Códigos-gabarito para apresentação ao vivo.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+<!-- ==================== NAVBAR ==================== -->
+<nav class="navbar navbar-expand-lg navbar-vetlab fixed-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="../index.html">VET<span>-Lab</span> <span class="badge badge-accent ms-2" style="font-size:0.65rem;">api/docs-request</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navDocs" aria-controls="navDocs" aria-expanded="false" aria-label="Alternar navegação">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navDocs">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="../index.html"><i data-lucide="home" style="width:14px;height:14px;vertical-align:-2px;"></i> Caso de Estudo</a></li>
+        <li class="nav-item"><a class="nav-link" href="#setup">Setup</a></li>
+        <li class="nav-item"><a class="nav-link" href="#falar">Roteiro do Vídeo</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4" style="padding-top:80px;">
+<div class="docs-layout">
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="docs-sidebar d-none d-lg-block">
+    <div class="nav-group-title">Geral</div>
+    <a href="#visao-geral">Visão Geral da Arquitetura</a>
+    <a href="#estrutura">Estrutura de Pastas</a>
+    <a href="#requisitos">Requisitos Funcionais &amp; Não Funcionais</a>
+
+    <div class="nav-group-title">Backend .NET</div>
+    <a href="#setup">Setup &amp; Docker</a>
+    <a href="#banco">Banco: Schemas &amp; Conexões</a>
+    <a href="#domain">Domain Layer — Aggregates</a>
+    <a href="#application">Application — Casos de Uso</a>
+    <a href="#mapeamento">Mapeamento DTO sem AutoMapper</a>
+    <a href="#infrastructure">Infrastructure — Repositories</a>
+    <a href="#endpoints">Endpoints via Extensions</a>
+    <a href="#identity">Autenticação — Identity</a>
+    <a href="#erros">Erros &amp; Validação + OpenCode</a>
+
+    <div class="nav-group-title">Frontend React</div>
+    <a href="#react-estrutura">Estrutura Features &amp; Auth</a>
+    <a href="#tanstack">TanStack Router</a>
+    <a href="#zod">Validação com Zod</a>
+
+    <div class="nav-group-title">Apresentação</div>
+    <a href="#falar">O que falar no vídeo</a>
+    <a href="#proximos">Próximos Passos (CQRS/ES)</a>
+  </aside>
+
+  <!-- ==================== CONTEÚDO ==================== -->
+  <main class="docs-content">
+
+    <!-- ===== INTRO ===== -->
+    <section id="intro">
+      <span class="eyebrow">Rota: api/docs-request/ — Acesso direto</span>
+      <h1 style="font-size:2rem;">Documentação Técnica — <span class="gradient-text">Gabarito para Apresentação ao Vivo</span></h1>
+      <p class="lead">
+        Toda a especificação e código que você precisa para construir o sistema enquanto grava.
+        Cada bloco tem botão <strong>COPIAR</strong>. Use como molde — não precisa decorar,
+        precisa <em>entender</em> cada linha.
+      </p>
+      <div class="callout info">
+        <p><strong>Como usar esta página:</strong> abra no tablet ao lado do VS Code.
+        Cada seção tem uma caixa <em>"FALAR NO VÍDEO"</em> com o roteiro. Os códigos são
+        completos o bastante para colar e rodar (ajuste namespaces).</p>
+      </div>
+    </section>
+
+    <!-- ===== VISÃO GERAL ===== -->
+    <section id="visao-geral">
+      <h2>1. Visão Geral da Arquitetura</h2>
+      <p>Arquitetura em camadas com dependência apontando para dentro (Clean Architecture simplificada).</p>
+
+      <div class="folder-tree"><span class="dir">VET-Lab.Api</span> (entry point — endpoints via Extensions)
+    ↓ depende de
+<span class="dir">VET-Lab.Application</span> (serviços = "casos de uso", DTOs, interfaces de repositório)
+    ↓ depende de
+<span class="dir">VET-Lab.Domain</span> (aggregates, entidades, value objects, regras de negócio, enums)
+    ↑ implementado por
+<span class="dir">VET-Lab.Infrastructure</span> (EF Core, repositories concretos, DbContexts, Identity)
+
+<span class="comment">// Dois contextos de banco, duas conexões, dois schemas lógicos no mesmo Postgres.</span></div>
+
+      <div class="speech-box">
+        <p>"Aqui eu uso o jargão 'caso de uso', mas na prática, na camada Application,
+        os casos de uso são implementados como <strong>serviços</strong> — classes que orquestram
+        agregados, repositórios e mapeamento. Cada método de serviço é um caso de uso.
+        Poderia ser uma classe por caso de uso (padrão Request/Handler), mas para este
+        tamanho, serviço por agregado basta."</p>
+      </div>
+    </section>
+
+    <!-- ===== ESTRUTURA PASTAS ===== -->
+    <section id="estrutura">
+      <h2>2. Estrutura de Pastas — Solução .NET</h2>
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>VetLab.sln — estrutura</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>VetLab.sln
+├── src/
+│   ├── VetLab.Domain/
+│   │   ├── Aggregates/
+│   │   │   └── SolicitacaoExame/
+│   │   │       ├── SolicitacaoExame.cs        (aggregate root)
+│   │   │       ├── Amostra.cs                 (entidade filha)
+│   │   │       ├── StatusSolicitacao.cs       (enum)
+│   │   │       ├── TipoAmostra.cs             (enum)
+│   │   │       └── TipoExame.cs               (enum)
+│   │   ├── ValueObjects/
+│   │   │   └── Crmv.cs                        (value object com validação)
+│   │   └── Exceptions/
+│   │       └── DomainException.cs
+│   ├── VetLab.Application/
+│   │   ├── DTOs/
+│   │   │   ├── CriarSolicitacaoDto.cs
+│   │   │   ├── SolicitacaoResponseDto.cs
+│   │   │   └── AtualizarStatusDto.cs
+│   │   ├── Mappings/
+│   │   │   └── SolicitacaoMapper.cs           (manual, sem AutoMapper)
+│   │   ├── Interfaces/
+│   │   │   └── ISolicitacaoRepository.cs
+│   │   └── Services/
+│   │       ├── ISolicitacaoService.cs
+│   │       └── SolicitacaoService.cs          (orquestra = casos de uso)
+│   ├── VetLab.Infrastructure/
+│   │   ├── Contexts/
+│   │   │   ├── ProdutoDbContext.cs            (schema 'produto')
+│   │   │   └── AuthDbContext.cs               (schema 'auth' — Identity)
+│   │   ├── Configurations/
+│   │   │   └── SolicitacaoExameConfiguration.cs
+│   │   ├── Repositories/
+│   │   │   └── SolicitacaoRepository.cs       (LINQ + EF Core)
+│   │   └── Migrations/                        (geradas via dotnet ef)
+│   └── VetLab.Api/
+│       ├── Program.cs
+│       ├── Extensions/
+│       │   └── EndpointExtensions.cs          (MapGroup por domínio)
+│       ├── Endpoints/
+│       │   ├── SolicitacaoEndpoints.cs
+│       │   └── AuthEndpoints.cs
+│       ├── Middleware/
+│       │   └── ExceptionMiddleware.cs
+│       └── appsettings.json
+└── tests/ (opcional nesta fase)</code></pre>
+      </div>
+    </section>
+
+    <!-- ===== REQUISITOS ===== -->
+    <section id="requisitos">
+      <h2>3. Requisitos Funcionais &amp; Não Funcionais</h2>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card-x">
+            <h5 style="color:var(--accent);"><i data-lucide="check-square" style="width:18px;height:18px;vertical-align:-3px;"></i> Funcionais (RF)</h5>
+            <ul style="color:var(--muted);font-size:0.92rem;line-height:1.9;">
+              <li>RF-01: Veterinário cria solicitação de exame (POST)</li>
+              <li>RF-02: Consultar solicitação por ID (GET) — retorna status</li>
+              <li>RF-03: Listar solicitações com filtro por status (GET)</li>
+              <li>RF-04: Laboratório atualiza status (PATCH) — com justificativa se REJEITADO</li>
+              <li>RF-05: Bioinformática registra laudo final → CONCLUIDO</li>
+              <li>RF-06: Autenticação de usuários (veterinário, técnico, bioinformata)</li>
+              <li>RF-07: Validação de CRMV e tipos de amostra/exame permitidos</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-x accent2">
+            <h5 style="color:var(--accent2);"><i data-lucide="shield-check" style="width:18px;height:18px;vertical-align:-3px;"></i> Não Funcionais (RNF)</h5>
+            <ul style="color:var(--muted);font-size:0.92rem;line-height:1.9;">
+              <li>RNF-01: PostgreSQL em Docker (porta 5432), schemas separados</li>
+              <li>RNF-02: ASP.NET Core Identity para auth (schema próprio)</li>
+              <li>RNF-03: Resposta &lt; 200ms em consulta por ID (índices)</li>
+              <li>RNF-04: Code-first com EF Core Migrations</li>
+              <li>RNF-05: Tratamento global de erros (ProblemDetails RFC 7807)</li>
+              <li>RNF-06: Preparado para CQRS/Event Sourcing (sem acoplamento)</li>
+              <li>RNF-07: API REST com JSON, códigos HTTP padronizados</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SETUP ===== -->
+    <section id="setup">
+      <h2>4. Setup — Docker &amp; Comandos</h2>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>docker-compose.yml</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: vetlab-postgres
+    environment:
+      POSTGRES_USER: vetlab
+      POSTGRES_PASSWORD: vetlab123
+      POSTGRES_DB: vetlab_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - vetlab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetlab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vetlab_pgdata:</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>appsettings.json — DUAS conexões</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>{
+  "ConnectionStrings": {
+    "AuthConnection": "Host=localhost;Port=5432;Database=vetlab_db;Username=vetlab;Password=vetlab123;SearchPath=auth",
+    "ProdutoConnection": "Host=localhost;Port=5432;Database=vetlab_db;Username=vetlab;Password=vetlab123;SearchPath=produto"
+  },
+  "Jwt": {
+    "Key": "coloque-uma-chave-secreta-grande-aqui-minimo-32-chars",
+    "Issuer": "VetLab",
+    "Audience": "VetLabUsers",
+    "ExpiresInMinutes": 120
+  },
+  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },
+  "AllowedHosts": "*"
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Comandos essenciais (terminal)</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code># Subir o banco
+docker compose up -d
+
+# Criar solution e projetos
+dotnet new sln -n VetLab
+dotnet new classlib -n VetLab.Domain -o src/VetLab.Domain
+dotnet new classlib -n VetLab.Application -o src/VetLab.Application
+dotnet new classlib -n VetLab.Infrastructure -o src/VetLab.Infrastructure
+dotnet new webapi -n VetLab.Api -o src/VetLab.Api --no-https
+
+# Referências (dependência aponta para dentro)
+dotnet add src/VetLab.Application reference src/VetLab.Domain
+dotnet add src/VetLab.Infrastructure reference src/VetLab.Domain
+dotnet add src/VetLab.Infrastructure reference src/VetLab.Application
+dotnet add src/VetLab.Api reference src/VetLab.Application
+dotnet add src/VetLab.Api reference src/VetLab.Infrastructure
+
+# Pacotes
+dotnet add src/VetLab.Infrastructure package Microsoft.EntityFrameworkCore
+dotnet add src/VetLab.Infrastructure package Npgsql.EntityFrameworkCore.PostgreSQL
+dotnet add src/VetLab.Infrastructure package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+dotnet add src/VetLab.Api package Microsoft.EntityFrameworkCore.Design
+dotnet add src/VetLab.Api package Swashbuckle.AspNetCore
+dotnet add src/VetLab.Application package FluentValidation
+
+# Migrations (gerar e aplicar)
+dotnet ef migrations add Inicial_Produto --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context ProdutoDbContext --output-dir Migrations/Produto
+dotnet ef migrations add Inicial_Auth --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context AuthDbContext --output-dir Migrations/Auth
+dotnet ef database update --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context ProdutoDbContext
+dotnet ef database update --project src/VetLab.Infrastructure --startup-project src/VetLab.Api --context AuthDbContext
+
+dotnet run --project src/VetLab.Api</code></pre>
+      </div>
+    </section>
+
+    <!-- ===== BANCO / SCHEMAS ===== -->
+    <section id="banco">
+      <h2>5. Banco de Dados — Schemas &amp; Duas Conexões</h2>
+      <p>
+        O PostgreSQL permite <strong>schemas</strong> lógicos dentro de um mesmo banco.
+        Usamos isso para isolar o domínio de autenticação do domínio de produto —
+        sem o overhead de duas instâncias, e com a vantagem de poder migrar para
+        bancos separados no futuro (passo natural do CQRS).
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>SQL — criação dos schemas (executar uma vez)</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>-- Conectado em vetlab_db
+CREATE SCHEMA IF NOT EXISTS auth;      -- tabelas do ASP.NET Identity
+CREATE SCHEMA IF NOT EXISTS produto;   -- tabelas do negócio (solicitações, amostras)
+
+-- Opcional: garantir search path
+ALTER DATABASE vetlab_db SET search_path TO public;
+
+-- Índice para performance na consulta por status (milhares de dados depois)
+CREATE INDEX IF NOT EXISTS idx_solicitacao_status ON produto.solicitacoes_exame (status);
+CREATE INDEX IF NOT EXISTS idx_solicitacao_veterinario ON produto.solicitacoes_exame (crmv);
+CREATE INDEX IF NOT EXISTS idx_solicitacao_data ON produto.solicitacoes_exame (data_criacao DESC);</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Infrastructure/Contexts/ProdutoDbContext.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using Microsoft.EntityFrameworkCore;
+using VetLab.Domain.Aggregates.SolicitacaoExame;
+
+namespace VetLab.Infrastructure.Contexts;
+
+public class ProdutoDbContext : DbContext
+{
+    public ProdutoDbContext(DbContextOptions&lt;ProdutoDbContext&gt; options) : base(options) { }
+
+    public DbSet&lt;SolicitacaoExame&gt; SolicitacoesExame =&gt; Set&lt;SolicitacaoExame&gt;();
+    public DbSet&lt;Amostra&gt; Amostras =&gt; Set&lt;Amostra&gt;();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Tudo vai para o schema 'produto'
+        modelBuilder.HasDefaultSchema("produto");
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ProdutoDbContext).Assembly);
+        base.OnModelCreating(modelBuilder);
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Infrastructure/Contexts/AuthDbContext.cs — Identity</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+namespace VetLab.Infrastructure.Contexts;
+
+// IdentityUser padrão — pode estender com dados do veterinário (CRMV, etc.)
+public class AuthDbContext : IdentityDbContext
+{
+    public AuthDbContext(DbContextOptions&lt;AuthDbContext&gt; options) : base(options) { }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasDefaultSchema("auth");
+        base.OnModelCreating(modelBuilder); // importante: Identity cria suas tabelas
+    }
+}</code></pre>
+      </div>
+
+      <div class="speech-box">
+        <p>"Veja o ponto chave: <strong>dois DbContexts, duas connection strings, dois schemas,
+        um único Postgres</strong>. A connection string já leva o <code class="inline">SearchPath</code>.
+        Isso é uma vantagem do PostgreSQL que eu cito — no MySQL/SQL Server a história é
+        outra. E quando o sistema crescer e eu quiser separar escrita de leitura (CQRS),
+        já tenho os contextos separados — é só apontar um para outra instância."</p>
+      </div>
+    </section>
+
+    <!-- ===== DOMAIN ===== -->
+    <section id="domain">
+      <h2>6. Domain Layer — Aggregates &amp; Regras</h2>
+      <p>
+        O coração do sistema. <code class="inline">SolicitacaoExame</code> é o <strong>aggregate root</strong> —
+        tudo passa por ele. A amostra é uma entidade filha. O status é protegido: só muda
+        através de métodos de domínio que validam a transição (não há <code class="inline">set</code> público).
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Domain/Aggregates/SolicitacaoExame/StatusSolicitacao.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>namespace VetLab.Domain.Aggregates.SolicitacaoExame;
+
+public enum StatusSolicitacao
+{
+    CRIADO,
+    EM_PROCESSAMENTO,
+    EM_ANALISE,
+    CONCLUIDO,
+    REJEITADO
+}
+
+public enum TipoAmostra
+{
+    Sangue,
+    Fezes,
+    Tecido,
+    LiquidoPeritoneal
+}
+
+public enum TipoExame
+{
+    CulturaBacteriana,
+    PainelPCR,
+    SequenciamentoNGS
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Domain/Aggregates/SolicitacaoExame/SolicitacaoExame.cs — AGGREGATE ROOT</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using VetLab.Domain.Exceptions;
+using VetLab.Domain.ValueObjects;
+
+namespace VetLab.Domain.Aggregates.SolicitacaoExame;
+
+public class SolicitacaoExame
+{
+    public Guid Id { get; private set; }
+    public string NomeVeterinario { get; private set; }
+    public Crmv Crmv { get; private set; }              // value object
+    public string NomeAnimal { get; private set; }
+    public string Especie { get; private set; }
+    public string Sintomas { get; private set; }
+    public string SuspeitaClinica { get; private set; }
+    public TipoAmostra TipoAmostra { get; private set; }
+    public TipoExame TipoExame { get; private set; }
+    public string? InstrucoesColeta { get; private set; }
+    public StatusSolicitacao Status { get; private set; }
+    public string? JustificativaRejeicao { get; private set; }
+    public DateTime DataCriacao { get; private set; }
+    public DateTime? DataAtualizacao { get; private set; }
+
+    // EF Core precisa de um ctor vazio (protected)
+    protected SolicitacaoExame() { }
+
+    // Construtor de criação — garante invariantes
+    public SolicitacaoExame(string nomeVeterinario, Crmv crmv, string nomeAnimal,
+        string especie, string sintomas, string suspeitaClinica,
+        TipoAmostra tipoAmostra, TipoExame tipoExame, string? instrucoesColeta)
+    {
+        if (string.IsNullOrWhiteSpace(nomeVeterinario))
+            throw new DomainException("Nome do veterinário é obrigatório.");
+        if (string.IsNullOrWhiteSpace(nomeAnimal))
+            throw new DomainException("Nome do animal é obrigatório.");
+        if (string.IsNullOrWhiteSpace(sintomas))
+            throw new DomainException("Sintomas devem ser descritos.");
+
+        Id = Guid.NewGuid();
+        NomeVeterinario = nomeVeterinario.Trim();
+        Crmv = crmv;
+        NomeAnimal = nomeAnimal.Trim();
+        Especie = especie.Trim();
+        Sintomas = sintomas.Trim();
+        SuspeitaClinica = suspeitaClinica.Trim();
+        TipoAmostra = tipoAmostra;
+        TipoExame = tipoExame;
+        InstrucoesColeta = instrucoesColeta;
+        Status = StatusSolicitacao.CRIADO;
+        DataCriacao = DateTime.UtcNow;
+    }
+
+    // Transições de estado controladas — regra de negócio no domínio
+    public void IniciarProcessamento()
+    {
+        if (Status != StatusSolicitacao.CRIADO)
+            throw new DomainException($"Só é possível processar uma solicitação CRIADA. Status atual: {Status}");
+        Status = StatusSolicitacao.EM_PROCESSAMENTO;
+        DataAtualizacao = DateTime.UtcNow;
+    }
+
+    public void EnviarParaAnalise()
+    {
+        if (Status != StatusSolicitacao.EM_PROCESSAMENTO)
+            throw new DomainException($"Só é possível enviar para análise a partir de EM_PROCESSAMENTO. Atual: {Status}");
+        Status = StatusSolicitacao.EM_ANALISE;
+        DataAtualizacao = DateTime.UtcNow;
+    }
+
+    public void Concluir(string laudo)
+    {
+        if (Status != StatusSolicitacao.EM_ANALISE)
+            throw new DomainException($"Só é possível concluir uma análise EM_ANALISE. Atual: {Status}");
+        if (string.IsNullOrWhiteSpace(laudo))
+            throw new DomainException("Laudo final é obrigatório para concluir.");
+        Status = StatusSolicitacao.CONCLUIDO;
+        DataAtualizacao = DateTime.UtcNow;
+    }
+
+    public void Rejeitar(string justificativa)
+    {
+        if (Status == StatusSolicitacao.CONCLUIDO)
+            throw new DomainException("Uma solicitação concluída não pode ser rejeitada.");
+        if (string.IsNullOrWhiteSpace(justificativa))
+            throw new DomainException("Justificativa é obrigatória ao rejeitar uma solicitação.");
+        Status = StatusSolicitacao.REJEITADO;
+        JustificativaRejeicao = justificativa.Trim();
+        DataAtualizacao = DateTime.UtcNow;
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Domain/ValueObjects/Crmv.cs + DomainException.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>// Value Object — imutável, validado na construção, comparado por valor
+namespace VetLab.Domain.ValueObjects;
+
+public record Crmv
+{
+    public string Valor { get; }
+
+    public Crmv(string valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            throw new DomainException("CRMV é obrigatório.");
+        // Formato esperado: UF-12345 (ex: MG-12345)
+        if (!System.Text.RegularExpressions.Regex.IsMatch(valor.Trim(), @"^[A-Z]{2}-\d{4,6}$"))
+            throw new DomainException($"CRMV '{valor}' inválido. Formato esperado: UF-12345.");
+        Valor = valor.Trim().ToUpper();
+    }
+
+    public override string ToString() =&gt; Valor;
+    public static implicit operator string(Crmv c) =&gt; c.Valor;
+}
+
+// ---- Domain/Exceptions/DomainException.cs ----
+namespace VetLab.Domain.Exceptions;
+
+public class DomainException : Exception
+{
+    public DomainException(string mensagem) : base(mensagem) { }
+}</code></pre>
+      </div>
+
+      <div class="speech-box">
+        <p>"Aqui o agregado é a estrela. Reparem: <strong>não há setters públicos</strong>.
+        O status só muda através de métodos que sabem qual transição é válida.
+        Isso é regra de negócio no lugar certo — o domínio. Se amanhã eu quiser
+        Event Sourcing, é só fazer cada método publicar um evento. A base já está
+        preparada porque o comportamento, e não os dados, está encapsulado aqui."</p>
+      </div>
+    </section>
+
+    <!-- ===== APPLICATION ===== -->
+    <section id="application">
+      <h2>7. Application Layer — Serviços (= Casos de Uso) &amp; DTOs</h2>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/DTOs/CriarSolicitacaoDto.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>namespace VetLab.Application.DTOs;
+
+// DTO de entrada — o que a API recebe do frontend
+public record CriarSolicitacaoDto(
+    string NomeVeterinario,
+    string Crmv,
+    string NomeAnimal,
+    string Especie,
+    string Sintomas,
+    string SuspeitaClinica,
+    string TipoAmostra,       // string — validação converte para enum
+    string TipoExame,
+    string? InstrucoesColeta
+);
+
+public record AtualizarStatusDto(
+    string Status,            // nome do enum como string
+    string? Justificativa,    // obrigatório se for REJEITADO
+    string? Laudo             // obrigatório se for CONCLUIDO
+);
+
+public record SolicitacaoResponseDto(
+    Guid Id,
+    string NomeVeterinario,
+    string Crmv,
+    string NomeAnimal,
+    string Especie,
+    string SuspeitaClinica,
+    string TipoAmostra,
+    string TipoExame,
+    string Status,
+    string? JustificativaRejeicao,
+    DateTime DataCriacao,
+    DateTime? DataAtualizacao
+);</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/Services/ISolicitacaoService.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using VetLab.Application.DTOs;
+
+namespace VetLab.Application.Services;
+
+// Cada método = um caso de uso
+public interface ISolicitacaoService
+{
+    Task&lt;SolicitacaoResponseDto&gt; CriarAsync(CriarSolicitacaoDto dto, CancellationToken ct = default);
+    Task&lt;SolicitacaoResponseDto?&gt; ObterPorIdAsync(Guid id, CancellationToken ct = default);
+    Task&lt;IEnumerable&lt;SolicitacaoResponseDto&gt;&gt; ListarPorStatusAsync(string? status, CancellationToken ct = default);
+    Task&lt;SolicitacaoResponseDto&gt; AtualizarStatusAsync(Guid id, AtualizarStatusDto dto, CancellationToken ct = default);
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- ===== MAPEAMENTO MANUAL ===== -->
+    <section id="mapeamento">
+      <h2>8. Mapeamento DTO ↔ Entidade — SEM AutoMapper</h2>
+      <p>
+        Decisão consciente: <strong>sem AutoMapper</strong>. O mapeamento é explícito,
+        fica em um único lugar, e você consegue explicar cada linha na entrevista.
+        A sobrecarga de código é mínima e o ganho de clareza, enorme.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/Mappings/SolicitacaoMapper.cs — MAPEAMENTO MANUAL</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using VetLab.Application.DTOs;
+using VetLab.Domain.Aggregates.SolicitacaoExame;
+using VetLab.Domain.ValueObjects;
+
+namespace VetLab.Application.Mappings;
+
+// Classe estática — pura, sem dependências, fácil de testar
+public static class SolicitacaoMapper
+{
+    // DTO (entrada) → Entidade de domínio
+    public static SolicitacaoExame ParaEntidade(CriarSolicitacaoDto dto)
+    {
+        // Converte strings para enums — aqui é o lugar certo para validar/traduzir
+        if (!Enum.TryParse&lt;TipoAmostra&gt;(dto.TipoAmostra, ignoreCase: true, out var tipoAmostra))
+            throw new ArgumentException($"Tipo de amostra inválido: {dto.TipoAmostra}. " +
+                $"Válidos: {string.Join(", ", Enum.GetNames&lt;TipoAmostra&gt;())}");
+
+        if (!Enum.TryParse&lt;TipoExame&gt;(dto.TipoExame, ignoreCase: true, out var tipoExame))
+            throw new ArgumentException($"Tipo de exame inválido: {dto.TipoExame}. " +
+                $"Válidos: {string.Join(", ", Enum.GetNames&lt;TipoExame&gt;())}");
+
+        // Crmv é value object — sua própria validação roda no construtor
+        var crmv = new Crmv(dto.Crmv);
+
+        return new SolicitacaoExame(
+            dto.NomeVeterinario, crmv, dto.NomeAnimal, dto.Especie,
+            dto.Sintomas, dto.SuspeitaClinica, tipoAmostra, tipoExame, dto.InstrucoesColeta);
+    }
+
+    // Entidade → DTO de resposta (saída para API)
+    public static SolicitacaoResponseDto ParaDto(SolicitacaoExame entidade)
+    {
+        return new SolicitacaoResponseDto(
+            entidade.Id,
+            entidade.NomeVeterinario,
+            entidade.Crmv.Valor,
+            entidade.NomeAnimal,
+            entidade.Especie,
+            entidade.SuspeitaClinica,
+            entidade.TipoAmostra.ToString(),
+            entidade.TipoExame.ToString(),
+            entidade.Status.ToString(),
+            entidade.JustificativaRejeicao,
+            entidade.DataCriacao,
+            entidade.DataAtualizacao
+        );
+    }
+
+    // Lista — LINQ direto, sem mágica
+    public static IEnumerable&lt;SolicitacaoResponseDto&gt; ParaDto(IEnumerable&lt;SolicitacaoExame&gt; entidades)
+        =&gt; entidades.Select(ParaDto);
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/Services/SolicitacaoService.cs — orquestração</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using VetLab.Application.DTOs;
+using VetLab.Application.Interfaces;
+using VetLab.Application.Mappings;
+using VetLab.Domain.Aggregates.SolicitacaoExame;
+using VetLab.Domain.Exceptions;
+
+namespace VetLab.Application.Services;
+
+public class SolicitacaoService : ISolicitacaoService
+{
+    private readonly ISolicitacaoRepository _repository;
+
+    // Injeção de dependência — só depende de abstração (interface)
+    public SolicitacaoService(ISolicitacaoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task&lt;SolicitacaoResponseDto&gt; CriarAsync(CriarSolicitacaoDto dto, CancellationToken ct = default)
+    {
+        // 1. Mapeia DTO → entidade (validações de domínio rodam aqui)
+        var entidade = SolicitacaoMapper.ParaEntidade(dto);
+
+        // 2. Persiste
+        await _repository.AdicionarAsync(entidade, ct);
+
+        // 3. Mapeia entidade → DTO de resposta
+        return SolicitacaoMapper.ParaDto(entidade);
+    }
+
+    public async Task&lt;SolicitacaoResponseDto?&gt; ObterPorIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var entidade = await _repository.ObterPorIdAsync(id, ct);
+        return entidade is null ? null : SolicitacaoMapper.ParaDto(entidade);
+    }
+
+    public async Task&lt;IEnumerable&lt;SolicitacaoResponseDto&gt;&gt; ListarPorStatusAsync(string? status, CancellationToken ct = default)
+    {
+        StatusSolicitacao? statusFiltrado = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse&lt;StatusSolicitacao&gt;(status, ignoreCase: true, out var parsed))
+                throw new DomainException($"Status inválido: {status}");
+            statusFiltrado = parsed;
+        }
+        var entidades = await _repository.ListarAsync(statusFiltrado, ct);
+        return SolicitacaoMapper.ParaDto(entidades);
+    }
+
+    public async Task&lt;SolicitacaoResponseDto&gt; AtualizarStatusAsync(Guid id, AtualizarStatusDto dto, CancellationToken ct = default)
+    {
+        var entidade = await _repository.ObterPorIdAsync(id, ct)
+            ?? throw new DomainException($"Solicitação {id} não encontrada.");
+
+        if (!Enum.TryParse&lt;StatusSolicitacao&gt;(dto.Status, ignoreCase: true, out var novoStatus))
+            throw new DomainException($"Status inválido: {dto.Status}");
+
+        // Dispara a transição de estado no domínio — regras de negócio aplicam-se
+        switch (novoStatus)
+        {
+            case StatusSolicitacao.EM_PROCESSAMENTO: entidade.IniciarProcessamento(); break;
+            case StatusSolicitacao.EM_ANALISE:       entidade.EnviarParaAnalise(); break;
+            case StatusSolicitacao.CONCLUIDO:        entidade.Concluir(dto.Laudo!); break;
+            case StatusSolicitacao.REJEITADO:        entidade.Rejeitar(dto.Justificativa!); break;
+            default:
+                throw new DomainException($"Transição para {novoStatus} não permitida via API.");
+        }
+
+        await _repository.SalvarAlteracoesAsync(ct);
+        return SolicitacaoMapper.ParaDto(entidade);
+    }
+}</code></pre>
+      </div>
+
+      <div class="speech-box">
+        <p>"Por que sem AutoMapper? Três motivos: <strong>primeiro</strong>, em entrevista
+        você não fica na dependência de 'a biblioteca faz'. <strong>Segundo</strong>, o
+        mapeamento aqui tem lógica — conversão de string para enum, construção de value
+        object — AutoMapper deixaria isso espalhado. <strong>Terceiro</strong>, é código
+        simples, estático, testável. Se o projeto crescer e o mapeamento ficar repetitivo,
+        eu introduzo uma biblioteca — mas só quando a dor justificar. <em>YAGNI</em>."</p>
+      </div>
+    </section>
+
+    <!-- ===== INFRASTRUCTURE / REPOSITORY ===== -->
+    <section id="infrastructure">
+      <h2>9. Infrastructure — Repository com LINQ &amp; EF Core</h2>
+      <p>
+        O Repository abstrai o acesso a dados. A interface fica na Application (depende de
+        abstração), a implementação na Infrastructure. As queries são LINQ — cuidadosas,
+        com <code class="inline">AsNoTracking</code> quando só lemos, e prontas para
+        paginação quando os milhares de dados chegarem.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/Interfaces/ISolicitacaoRepository.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using VetLab.Domain.Aggregates.SolicitacaoExame;
+
+namespace VetLab.Application.Interfaces;
+
+public interface ISolicitacaoRepository
+{
+    Task AdicionarAsync(SolicitacaoExame solicitacao, CancellationToken ct = default);
+    Task&lt;SolicitacaoExame?&gt; ObterPorIdAsync(Guid id, CancellationToken ct = default);
+    Task&lt;IEnumerable&lt;SolicitacaoExame&gt;&gt; ListarAsync(StatusSolicitacao? status, CancellationToken ct = default);
+    Task SalvarAlteracoesAsync(CancellationToken ct = default);
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Infrastructure/Repositories/SolicitacaoRepository.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using Microsoft.EntityFrameworkCore;
+using VetLab.Application.Interfaces;
+using VetLab.Domain.Aggregates.SolicitacaoExame;
+using VetLab.Infrastructure.Contexts;
+
+namespace VetLab.Infrastructure.Repositories;
+
+public class SolicitacaoRepository : ISolicitacaoRepository
+{
+    private readonly ProdutoDbContext _ctx;
+
+    public SolicitacaoRepository(ProdutoDbContext ctx)
+    {
+        _ctx = ctx;
+    }
+
+    public async Task AdicionarAsync(SolicitacaoExame solicitacao, CancellationToken ct = default)
+    {
+        await _ctx.SolicitacoesExame.AddAsync(solicitacao, ct);
+        await _ctx.SaveChangesAsync(ct);
+    }
+
+    public async Task&lt;SolicitacaoExame?&gt; ObterPorIdAsync(Guid id, CancellationToken ct = default)
+    {
+        // Tracking ligado — essa entidade pode ser alterada (AtualizarStatus)
+        return await _ctx.SolicitacoesExame
+            .FirstOrDefaultAsync(s =&gt; s.Id == id, ct);
+    }
+
+    public async Task&lt;IEnumerable&lt;SolicitacaoExame&gt;&gt; ListarAsync(StatusSolicitacao? status, CancellationToken ct = default)
+    {
+        // Query LINQ composável — IQueryable. Filtro só aplica se status vier.
+        var query = _ctx.SolicitacoesExame.AsNoTracking().AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(s =&gt; s.Status == status.Value);
+
+        // Pronto para paginação: .Skip((pagina-1)*tamanho).Take(tamanho)
+        return await query
+            .OrderByDescending(s =&gt; s.DataCriacao)
+            .Take(100) // limite temporário — remover quando paginação existir
+            .ToListAsync(ct);
+    }
+
+    public async Task SalvarAlteracoesAsync(CancellationToken ct = default)
+    {
+        await _ctx.SaveChangesAsync(ct);
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Infrastructure/Configurations/SolicitacaoExameConfiguration.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VetLab.Domain.Aggregates.SolicitacaoExame;
+using VetLab.Domain.ValueObjects;
+
+namespace VetLab.Infrastructure.Configurations;
+
+// Configuração por entidade (IEntityTypeConfiguration) — OnModelCreating limpo
+public class SolicitacaoExameConfiguration : IEntityTypeConfiguration&lt;SolicitacaoExame&gt;
+{
+    public void Configure(EntityTypeBuilder&lt;SolicitacaoExame&gt; builder)
+    {
+        builder.ToTable("solicitacoes_exame");
+        builder.HasKey(s =&gt; s.Id);
+
+        builder.Property(s =&gt; s.NomeVeterinario).HasMaxLength(150).IsRequired();
+        builder.Property(s =&gt; s.NomeAnimal).HasMaxLength(100).IsRequired();
+        builder.Property(s =&gt; s.Especie).HasMaxLength(50).IsRequired();
+        builder.Property(s =&gt; s.Sintomas).HasColumnType("text").IsRequired();
+        builder.Property(s =&gt; s.SuspeitaClinica).HasMaxLength(200).IsRequired();
+        builder.Property(s =&gt; s.InstrucoesColeta).HasColumnType("text");
+        builder.Property(s =&gt; s.JustificativaRejeicao).HasColumnType("text");
+
+        // Enums como string no banco — legível, evita quebra de contrato
+        builder.Property(s =&gt; s.Status).HasConversion&lt;string&gt;().HasMaxLength(30).IsRequired();
+        builder.Property(s =&gt; s.TipoAmostra).HasConversion&lt;string&gt;().HasMaxLength(30).IsRequired();
+        builder.Property(s =&gt; s.TipoExame).HasConversion&lt;string&gt;().HasMaxLength(30).IsRequired();
+
+        // Value object Crmv — mapeado como coluna simples (owned ou conversão)
+        builder.Property(s =&gt; s.Crmv)
+            .HasConversion(c =&gt; c.Valor, v =&gt; new Crmv(v))
+            .HasMaxLength(12)
+            .IsRequired();
+
+        builder.HasIndex(s =&gt; s.Status);
+        builder.HasIndex(s =&gt; s.Crmv);
+        builder.HasIndex(s =&gt; s.DataCriacao);
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- ===== ENDPOINTS VIA EXTENSIONS ===== -->
+    <section id="endpoints">
+      <h2>10. Endpoints via Extensions (Minimal APIs + MapGroup)</h2>
+      <p>
+        Aqui está o padrão que você vai explicar no vídeo: em vez de Controllers com
+        herança e <code class="inline">[ApiController]</code>, usamos <strong>Minimal APIs
+        agrupadas por domínio através de Extension Methods</strong> sobre
+        <code class="inline">IEndpointRouteBuilder</code>. O <code class="inline">Program.cs</code>
+        fica limpo — uma linha por domínio.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Api/Endpoints/SolicitacaoEndpoints.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using Microsoft.AspNetCore.Mvc;
+using VetLab.Application.DTOs;
+using VetLab.Application.Services;
+using VetLab.Domain.Exceptions;
+
+namespace VetLab.Api.Endpoints;
+
+public static class SolicitacaoEndpoints
+{
+    // Extension method — this IEndpointRouteBuilder app
+    public static void MapSolicitacaoEndpoints(this IEndpointRouteBuilder app)
+    {
+        // Agrupa todas as rotas deste domínio com prefixo e tag (Swagger)
+        var grupo = app.MapGroup("/api/solicitacoes")
+                       .WithTags("Solicitações de Exame")
+                       .WithOpenApi();
+
+        // POST — endpoint de escrita (grava no banco)
+        grupo.MapPost("/", async (
+            [FromBody] CriarSolicitacaoDto dto,
+            ISolicitacaoService service,
+            CancellationToken ct) =&gt;
+        {
+            var resultado = await service.CriarAsync(dto, ct);
+            return Results.Created($"/api/solicitacoes/{resultado.Id}", resultado);
+        })
+        .WithName("CriarSolicitacao")
+        .Produces&lt;SolicitacaoResponseDto&gt;(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest);
+
+        // GET por ID — endpoint de leitura (consulta status)
+        grupo.MapGet("/{id:guid}", async (
+            Guid id,
+            ISolicitacaoService service,
+            CancellationToken ct) =&gt;
+        {
+            var resultado = await service.ObterPorIdAsync(id, ct);
+            return resultado is null
+                ? Results.NotFound(new { mensagem = $"Solicitação {id} não encontrada." })
+                : Results.Ok(resultado);
+        })
+        .WithName("ObterSolicitacao")
+        .Produces&lt;SolicitacaoResponseDto&gt;(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
+        // GET listar com filtro de status
+        grupo.MapGet("/", async (
+            [FromQuery] string? status,
+            ISolicitacaoService service,
+            CancellationToken ct) =&gt;
+        {
+            var resultados = await service.ListarPorStatusAsync(status, ct);
+            return Results.Ok(resultados);
+        })
+        .WithName("ListarSolicitacoes");
+
+        // PATCH — atualizar status (transição de estado)
+        grupo.MapPatch("/{id:guid}/status", async (
+            Guid id,
+            [FromBody] AtualizarStatusDto dto,
+            ISolicitacaoService service,
+            CancellationToken ct) =&gt;
+        {
+            var resultado = await service.AtualizarStatusAsync(id, dto, ct);
+            return Results.Ok(resultado);
+        })
+        .WithName("AtualizarStatus")
+        .Produces&lt;SolicitacaoResponseDto&gt;(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status400BadRequest);
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Api/Program.cs — limpo, uma linha por domínio</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using VetLab.Api.Endpoints;
+using VetLab.Api.Middleware;
+using VetLab.Application.Interfaces;
+using VetLab.Application.Services;
+using VetLab.Infrastructure.Contexts;
+using VetLab.Infrastructure.Repositories;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// --- Serviços ---
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Dois DbContexts, duas connection strings, dois schemas
+builder.Services.AddDbContext&lt;ProdutoDbContext&gt;(opt =&gt;
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("ProdutoConnection")));
+
+builder.Services.AddDbContext&lt;AuthDbContext&gt;(opt =&gt;
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("AuthConnection")));
+
+// Identity apontando para o AuthDbContext (schema auth)
+builder.Services.AddIdentityCore&lt;IdentityUser&gt;(opt =&gt;
+    {
+        opt.Password.RequireDigit = true;
+        opt.Password.RequiredLength = 8;
+        opt.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores&lt;AuthDbContext&gt;()
+    .AddApiEndpoints(); // .NET 8+: Identity API endpoints nativos
+
+// DI — Repository e Service (escopo por requisição)
+builder.Services.AddScoped&lt;ISolicitacaoRepository, SolicitacaoRepository&gt;();
+builder.Services.AddScoped&lt;ISolicitacaoService, SolicitacaoService&gt;();
+
+var app = builder.Build();
+
+// --- Middleware de exceções global (ver seção de erros) ---
+app.UseMiddleware&lt;ExceptionMiddleware&gt;();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// --- Endpoints via Extensions: UMA LINHA POR DOMÍNIO ---
+app.MapSolicitacaoEndpoints();   // domínio produto
+app.MapAuthEndpoints();          // domínio auth (ver seção Identity)
+
+// Aplica migrations automaticamente em dev (opcional — comente se preferir manual)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var produtoCtx = scope.ServiceProvider.GetRequiredService&lt;ProdutoDbContext&gt;();
+    produtoCtx.Database.Migrate();
+    var authCtx = scope.ServiceProvider.GetRequiredService&lt;AuthDbContext&gt;();
+    authCtx.Database.Migrate();
+}
+
+app.Run();</code></pre>
+      </div>
+
+      <div class="speech-box">
+        <p>"Este é o padrão de <strong>Endpoints via Extensions</strong>. Cada domínio tem
+        sua classe estática com um <code class="inline">Map*Endpoints</code> que recebe
+        <code class="inline">this IEndpointRouteBuilder</code>. No Program.cs é uma linha.
+        Comparado a Controllers: menos boilerplate, injeção direta no handler, e o
+        agrupamento com <code class="inline">MapGroup</code> aplica prefixo e tag de
+        uma vez. Se o projeto crescer e precisar de mais estrutura (filtros, model
+        binding complexo), Controllers continuam sendo uma opção — mas para APIs
+        focadas em CRUD e comandos, Minimal APIs são mais enxutas. Na entrevista,
+        eu apresento as duas e justifico a escolha."</p>
+      </div>
+    </section>
+
+    <!-- ===== IDENTITY ===== -->
+    <section id="identity">
+      <h2>11. Autenticação — ASP.NET Core Identity (schema auth)</h2>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Api/Endpoints/AuthEndpoints.cs — registro/login/JWT</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+
+namespace VetLab.Api.Endpoints;
+
+public record RegisterDto(string Email, string Password, string Nome);
+public record LoginDto(string Email, string Password);
+
+public static class AuthEndpoints
+{
+    public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup("/api/auth").WithTags("Autenticação").WithOpenApi();
+
+        grupo.MapPost("/register", async (
+            [FromBody] RegisterDto dto,
+            UserManager&lt;IdentityUser&gt; userManager,
+            CancellationToken ct) =&gt;
+        {
+            var user = new IdentityUser { UserName = dto.Email, Email = dto.Email };
+            var result = await userManager.CreateAsync(user, dto.Password);
+            if (!result.Succeeded)
+                return Results.BadRequest(new { erros = result.Errors.Select(e =&gt; e.Description) });
+            return Results.Created($"/api/auth/{user.Id}", new { user.Id, user.Email });
+        });
+
+        grupo.MapPost("/login", async (
+            [FromBody] LoginDto dto,
+            UserManager&lt;IdentityUser&gt; userManager,
+            IConfiguration config,
+            CancellationToken ct) =&gt;
+        {
+            var user = await userManager.FindByEmailAsync(dto.Email);
+            if (user is null || !await userManager.CheckPasswordAsync(user, dto.Password))
+                return Results.Unauthorized();
+
+            var token = GerarJwt(user, config);
+            return Results.Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token), validade = token.ValidTo });
+        });
+    }
+
+    private static JwtSecurityToken GerarJwt(IdentityUser user, IConfiguration config)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Email, user.Email!),
+        };
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
+        return new JwtSecurityToken(
+            issuer: config["Jwt:Issuer"],
+            audience: config["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(double.Parse(config["Jwt:ExpiresInMinutes"]!)),
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+    }
+}</code></pre>
+      </div>
+
+      <div class="callout info">
+        <p><strong>Para proteger endpoints:</strong> adicione
+        <code class="inline">builder.Services.AddAuthentication().AddJwtBearer(...)</code> e
+        chame <code class="inline">app.UseAuthentication().UseAuthorization();</code>
+        Depois, no grupo de endpoints: <code class="inline">grupo.RequireAuthorization();</code>
+        — uma linha protege todo o domínio.</p>
+      </div>
+    </section>
+
+    <!-- ===== ERROS & VALIDAÇÃO + OPENCODE ===== -->
+    <section id="erros">
+      <h2>12. Tratamento de Erros &amp; Validação + Delegação ao OpenCode</h2>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Api/Middleware/ExceptionMiddleware.cs — global, ProblemDetails</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using System.Net;
+using System.Text.Json;
+using VetLab.Domain.Exceptions;
+
+namespace VetLab.Api.Middleware;
+
+// Middleware global — captura qualquer exceção não tratada e devolve ProblemDetails (RFC 7807)
+public class ExceptionMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;ExceptionMiddleware&gt; _logger;
+
+    public ExceptionMiddleware(RequestDelegate next, ILogger&lt;ExceptionMiddleware&gt; logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (DomainException ex)
+        {
+            // Regra de negócio violada — 400 com mensagem clara
+            _logger.LogWarning(ex, "Regra de domínio violada: {Mensagem}", ex.Message);
+            await EscreverErroAsync(context, HttpStatusCode.BadRequest, "Violação de regra de negócio", ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            await EscreverErroAsync(context, HttpStatusCode.BadRequest, "Requisição inválida", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro inesperado");
+            await EscreverErroAsync(context, HttpStatusCode.InternalServerError, "Erro interno",
+                "Ocorreu um erro inesperado. Tente novamente mais tarde.");
+        }
+    }
+
+    private static async Task EscreverErroAsync(HttpContext ctx, HttpStatusCode status, string titulo, string detalhe)
+    {
+        ctx.Response.ContentType = "application/problem+json";
+        ctx.Response.StatusCode = (int)status;
+        var problem = new
+        {
+            type = "https://httpstatuses.com/" + (int)status,
+            title = titulo,
+            status = (int)status,
+            detail = detalhe,
+            instance = ctx.Request.Path
+        };
+        await ctx.Response.WriteAsync(JsonSerializer.Serialize(problem));
+    }
+}</code></pre>
+      </div>
+
+      <h3>Validação com FluentValidation (Application)</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>Application/Validators/CriarSolicitacaoValidator.cs</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>using FluentValidation;
+using VetLab.Application.DTOs;
+
+namespace VetLab.Application.Validators;
+
+public class CriarSolicitacaoValidator : AbstractValidator&lt;CriarSolicitacaoDto&gt;
+{
+    public CriarSolicitacaoValidator()
+    {
+        RuleFor(x =&gt; x.NomeVeterinario).NotEmpty().MaximumLength(150);
+        RuleFor(x =&gt; x.Crmv).NotEmpty().Matches(@"^[A-Za-z]{2}-\d{4,6}$")
+            .WithMessage("CRMV no formato UF-12345.");
+        RuleFor(x =&gt; x.NomeAnimal).NotEmpty().MaximumLength(100);
+        RuleFor(x =&gt; x.Sintomas).NotEmpty().MinimumLength(10);
+        RuleFor(x =&gt; x.SuspeitaClinica).NotEmpty().MaximumLength(200);
+        RuleFor(x =&gt; x.TipoAmostra).IsInEnum(typeof(Domain.Aggregates.SolicitacaoExame.TipoAmostra));
+        RuleFor(x =&gt; x.TipoExame).IsInEnum(typeof(Domain.Aggregates.SolicitacaoExame.TipoExame));
+    }
+}
+
+// Registro: builder.Services.AddValidatorsFromAssemblyContaining&lt;CriarSolicitacaoValidator&gt;();
+// E aplicar via pipeline behavior ou chamada manual no serviço/endpoint.</code></pre>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>Delegação ao OpenCode — dica de prompt (use em branch separada):</strong></p>
+        <p style="font-family:var(--mono);font-size:0.82rem;color:var(--accent2);white-space:pre-wrap;">
+Crie uma branch `feature/validacao-erros`. Implemente:
+1. FluentValidation para todos os DTOs em VetLab.Application.
+2. Um pipeline behavior (MediatR ou filtro de endpoint) que valide antes de chegar ao serviço.
+3. Testes de unidade para cada validator (xUnit).
+4. Garanta que DomainException continue sendo lançada no domínio — a validação de
+   entrada é apenas a primeira linha de defesa.
+5. Não altere a API pública dos serviços. Abra PR quando terminar.
+
+Enquanto isso, eu trabalho na branch `feature/endpoints-produto` implementando
+os endpoints de solicitação. Não mexa em SolicitacaoEndpoints.cs.</p>
+      </div>
+
+      <div class="speech-box">
+        <p>"A estratégia é: <strong>duas camadas de defesa</strong>. A primeira é validação
+        de entrada (FluentValidation) — barra pedido mal formado. A segunda é regra de
+        domínio (DomainException no agregado) — barra transição de estado inválida.
+        O middleware global converte tudo em ProblemDetails. E enquanto eu codifico os
+        endpoints na minha branch, o OpenCode faz a validação e os testes em outra.
+        Merge depois. Isso mostra ao entrevistador que você usa IA como copiloto,
+        não como muleta."</p>
+      </div>
+    </section>
+
+    <!-- ===== REACT ESTRUTURA ===== -->
+    <section id="react-estrutura">
+      <h2>13. Frontend React — Estrutura por Features &amp; Auth</h2>
+      <p>
+        Organização por <strong>features</strong> (não por tipo de arquivo). Cada feature
+        é autocontida: componentes, hooks, rotas, validação. Auth é uma feature transversal
+        com contexto próprio.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>frontend/ — estrutura de diretórios</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>vetlab-web/
+├── src/
+│   ├── app/                      # configuração da app (router, providers)
+│   │   ├── router.tsx            # definição das rotas (TanStack Router)
+│   │   └── providers.tsx         # AuthProvider, QueryClientProvider
+│   ├── features/
+│   │   ├── auth/
+│   │   │   ├── components/       # LoginForm, RegisterForm
+│   │   │   ├── hooks/            # useLogin, useRegister
+│   │   │   ├── context/          # AuthContext.tsx (estado de sessão)
+│   │   │   ├── schemas/          # loginSchema.ts (Zod)
+│   │   │   ├── types.ts
+│   │   │   └── api.ts            # chamadas para /api/auth/*
+│   │   └── solicitacoes/
+│   │       ├── components/       # FormSolicitacao, ListaSolicitacoes, StatusBadge
+│   │       ├── hooks/            # useSolicitacoes, useCriarSolicitacao (TanStack Query)
+│   │       ├── schemas/          # criarSolicitacaoSchema.ts (Zod)
+│   │       ├── types.ts
+│   │       └── api.ts            # chamadas para /api/solicitacoes/*
+│   ├── shared/                   # código reutilizável entre features
+│   │   ├── components/           # Button, Input, Modal, Layout, Sidebar
+│   │   ├── hooks/                # useFetch, useDebounce
+│   │   ├── lib/                  # apiClient.ts (axios/fetch com interceptador de token)
+│   │   └── utils/
+│   ├── routes/                   # páginas (uma por rota, importam de features)
+│   │   ├── login.lazy.tsx
+│   │   ├── dashboard.lazy.tsx
+│   │   └── solicitacao.$id.lazy.tsx
+│   └── main.tsx
+├── package.json
+└── vite.config.ts</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>shared/lib/apiClient.ts — fetch com token automático</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>// Cliente HTTP único — intercepta e injeta Bearer token, trata 401
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
+
+export async function apiClient&lt;T&gt;(
+  path: string,
+  options: RequestInit = {}
+): Promise&lt;T&gt; {
+  const token = localStorage.getItem("vetlab_token");
+  const headers: Record&lt;string, string&gt; = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record&lt;string, string&gt;),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+
+  if (res.status === 401) {
+    localStorage.removeItem("vetlab_token");
+    window.location.href = "/login";
+    throw new Error("Sessão expirada");
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() =&gt; ({ detail: res.statusText }));
+    throw new Error(err.detail ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise&lt;T&gt;;
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- ===== TANSTACK ROUTER ===== -->
+    <section id="tanstack">
+      <h2>14. TanStack Router — Rotas Tipadas</h2>
+      <p>
+        Substitui o React Router. Rotas definidas como <strong>árvore tipada</strong> —
+        params e search params são inferidos em TypeScript. Menos bugs de rota quebrada.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>app/router.tsx — definição das rotas</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>import { createRouter, createRootRoute, createRoute, Outlet, Link } from "@tanstack/react-router";
+import { AuthProvider, useAuth } from "../features/auth/context/AuthContext";
+
+// Layout raiz
+const rootRoute = createRootRoute({
+  component: () =&gt; (
+    &lt;AuthProvider&gt;
+      &lt;div className="app-shell"&gt;
+        &lt;Outlet /&gt;
+      &lt;/div&gt;
+    &lt;/AuthProvider&gt;
+  ),
+});
+
+// Página de login (pública)
+const loginRoute = createRoute({
+  getParentRoute: () =&gt; rootRoute,
+  path: "/login",
+  component: () =&gt; import("../routes/login.lazy").then((m) =&gt; m.default),
+});
+
+// Rota protegida — wrapper que verifica autenticação
+function Protected({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) {
+    return &lt;Link to="/login"&gt;Redirecionando...&lt;/Link&gt;;
+  }
+  return &lt;&gt;{children}&lt;/&gt;;
+}
+
+// Dashboard (protegida)
+const dashboardRoute = createRoute({
+  getParentRoute: () =&gt; rootRoute,
+  path: "/",
+  component: () =&gt; (
+    &lt;Protected&gt;
+      {import("../routes/dashboard.lazy").then((m) =&gt; m.default)}
+    &lt;/Protected&gt;
+  ),
+});
+
+// Detalhe da solicitação — param tipado: $id
+const solicitacaoRoute = createRoute({
+  getParentRoute: () =&gt; rootRoute,
+  path: "/solicitacao/$id",
+  component: () =&gt; import("../routes/solicitacao.$id.lazy").then((m) =&gt; m.default),
+});
+
+const routeTree = rootRoute.addChildren([loginRoute, dashboardRoute, solicitacaoRoute]);
+export const router = createRouter({ routeTree });
+
+// No main.tsx: &lt;RouterProvider router={router} /&gt;</code></pre>
+      </div>
+
+      <div class="speech-box">
+        <p>"TanStack Router: a grande vantagem é o <strong>type-safety de ponta a ponta</strong>.
+        Quando você navega com <code class="inline">&lt;Link to="/solicitacao/$id" params={{id}} /&gt;</code>,
+        o TypeScript cobra o param certo. Search params também são tipados. Em entrevista,
+        eu comparo: React Router é mais conhecido, mas TanStack Router é mais seguro e
+        se integra melhor com TanStack Query (que eu também uso para cache de servidor).
+        Mostrar que você conhece alternativas modernas pesa."</p>
+      </div>
+    </section>
+
+    <!-- ===== ZOD ===== -->
+    <section id="zod">
+      <h2>15. Validação no Frontend com Zod</h2>
+      <p>
+        Zod valida o formulário <em>antes</em> de ir para a API — e o schema vira tipo
+        TypeScript automaticamente (<code class="inline">z.infer</code>). Menos código,
+        mais segurança.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="file-path"><span class="dots"><span></span><span></span><span></span></span>features/solicitacoes/schemas/criarSolicitacaoSchema.ts</span><button type="button" class="copy-btn">COPIAR</button></div>
+        <pre><code>import { z } from "zod";
+
+export const criarSolicitacaoSchema = z.object({
+  nomeVeterinario: z.string().min(3, "Mínimo 3 caracteres").max(150),
+  crmv: z.string().regex(/^[A-Za-z]{2}-\d{4,6}$/, "Formato: UF-12345"),
+  nomeAnimal: z.string().min(1, "Obrigatório").max(100),
+  especie: z.string().min(1, "Obrigatório"),
+  sintomas: z.string().min(10, "Descreva os sintomas (mín. 10 caracteres)"),
+  suspeitaClinica: z.string().min(3).max(200),
+  tipoAmostra: z.enum(["Sangue", "Fezes", "Tecido", "LiquidoPeritoneal"]),
+  tipoExame: z.enum(["CulturaBacteriana", "PainelPCR", "SequenciamentoNGS"]),
+  instrucoesColeta: z.string().max(500).optional(),
+});
+
+// Tipo derivado DO schema — única fonte de verdade
+export type CriarSolicitacaoInput = z.infer&lt;typeof criarSolicitacaoSchema&gt;;
+
+// Uso no componente (com react-hook-form + zod resolver):
+// const form = useForm&lt;CriarSolicitacaoInput&gt;({ resolver: zodResolver(criarSolicitacaoSchema) });</code></pre>
+      </div>
+
+      <div class="callout success">
+        <p><strong>Dica de treino:</strong> explique a simetria — o backend valida com
+        FluentValidation, o frontend com Zod, e o domínio com DomainException.
+        <em>Três camadas, cada uma com sua responsabilidade.</em> O entrevistador ama
+        quando você mostra que entendeu que validação não é coisa de um lugar só.</p>
+      </div>
+    </section>
+
+    <!-- ===== O QUE FALAR NO VÍDEO ===== -->
+    <section id="falar">
+      <h2>16. Roteiro do Vídeo — O que falar, na ordem</h2>
+      <p class="lead">Sequência sugerida para a gravação. Cronometre: ~15 a 20 minutos.</p>
+
+      <table class="table-x">
+        <thead><tr><th style="width:8%;">Min</th><th style="width:25%;">Tópico</th><th>O que falar / fazer</th></tr></thead>
+        <tbody>
+          <tr><td>0:00</td><td>Abertura</td><td>Apresente o caso: "VET-Lab, laboratório de análise animal. Veterinário pede exame, laboratório processa, bioinformática analisa. Eu vou construir a API e o frontend."</td></tr>
+          <tr><td>1:00</td><td>Setup</td><td>Mostre docker compose up, dois schemas no Postgres. "Um banco, dois schemas — vantagem do Postgres."</td></tr>
+          <tr><td>3:00</td><td>Domain</td><td>Abra o aggregate. "Sem setters públicos. Status só muda por método. Regra de negócio no lugar certo." Destaque as transições de estado.</td></tr>
+          <tr><td>6:00</td><td>Application + Mapper</td><td>Mostre o mapper manual. "Sem AutoMapper — explícito, testável, e aqui tem lógica de conversão." Mostre o serviço orquestrando.</td></tr>
+          <tr><td>9:00</td><td>Infrastructure</td><td>Repository com LINQ, AsNoTracking, IQueryable composável. "Pronto para paginação quando os dados crescerem."</td></tr>
+          <tr><td>11:00</td><td>Endpoints via Extensions</td><td>Mostre MapGroup e Program.cs com uma linha por domínio. Compare com Controllers. "Eu escolho Minimal APIs aqui, mas Controllers continuam válidos — eis o trade-off."</td></tr>
+          <tr><td>13:00</td><td>Identity + JWT</td><td>Dois contextos. Auth no schema auth. Mostre login retornando token.</td></tr>
+          <tr><td>14:30</td><td>Erros &amp; Validação</td><td>Middleware global → ProblemDetails. "Três camadas: Zod no front, FluentValidation na API, DomainException no domínio."</td></tr>
+          <tr><td>16:00</td><td>OpenCode em paralelo</td><td>Mostre as duas branches. "Eu codifico endpoints, o OpenCode faz validação e testes. IA é copiloto."</td></tr>
+          <tr><td>17:30</td><td>Frontend React</td><td>Estrutura por features, TanStack Router tipado, Zod schema. Rápido — foque em uma tela (formulário de solicitação).</td></tr>
+          <tr><td>19:00</td><td>Próximos passos</td><td>"Amanhã: CQRS separando leitura/escrita, Event Sourcing para histórico, filas para processamento. A base de hoje permite isso sem reescrever."</td></tr>
+          <tr><td>20:00</td><td>Encerramento</td><td>Chame para seguir no próximo vídeo (milhares de dados, performance, paginação).</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ===== PRÓXIMOS PASSOS ===== -->
+    <section id="proximos">
+      <h2>17. Próximos Passos — Para Onde a Arquitetura Evolui</h2>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="card-x">
+            <h5 style="color:var(--accent);">CQRS</h5>
+            <p>Separar escrita (comandos) de leitura (queries). Leitura pode ir para um banco otimizado (read model). Os contextos já estão separados — é só dividir.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-x accent2">
+            <h5 style="color:var(--accent2);">Event Sourcing</h5>
+            <p>Cada método do agregado (IniciarProcessamento, Concluir...) publica um evento. O histórico completo da solicitação fica armazenado — auditoria nativa.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-x">
+            <h5 style="color:var(--success);">Filas &amp; Escala</h5>
+            <p>RabbitMQ/Kafka para processamento assíncrono. Quando milhares de solicitações chegarem, o endpoint de escrita só enfileira — o processamento acontece depois.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-4">
+        <p><strong>Frase de fechamento para a entrevista:</strong>
+        <em>"Eu não construí um sistema que resolve o problema de hoje. Construí uma base
+        que, a cada decisão, pensou no problema de amanhã. E isso se prova porque cada
+        camada depende de abstração — eu troco a implementação sem tocar no domínio."</em></p>
+      </div>
+    </section>
+
+    <hr style="border-color:var(--border);margin:3rem 0 1rem;">
+    <p class="text-muted-x text-center" style="font-size:0.85rem;">
+      VET-Lab — Documentação para treinamento ao vivo. Volte ao <a href="../index.html">caso de estudo</a>.
+    </p>
+
+  </main>
+</div>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="footer-x">
+  <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <p><strong style="color:var(--text);">VET-Lab</strong> — api/docs-request/ · Gabarito técnico · <span class="year-now"></span></p>
+    <p>Use com VS Code aberto ao lado. Boa gravação e boa entrevista.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../assets/js/main.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
